@@ -2,6 +2,7 @@ import numpy as np
 from ultralytics import YOLO
 
 from src.detection.bbox import BBox
+from src.detection.skeleton import Skeleton
 
 
 class Detector:
@@ -39,3 +40,33 @@ class Detector:
                 )
 
         return bboxes
+
+
+class PoseDetector:
+    """YOLOv8 Pose detector that returns skeleton keypoints."""
+
+    def __init__(
+        self,
+        model_path: str = "yolov8n-pose.pt",
+        confidence: float = 0.5,
+    ):
+        self.model = YOLO(model_path)
+        self.confidence = confidence
+
+    def detect(self, frame: np.ndarray) -> list[Skeleton]:
+        """Detect poses and return list of Skeleton objects."""
+        results = self.model(frame, conf=self.confidence, verbose=False)
+
+        skeletons = []
+        for result in results:
+            if result.keypoints is None:
+                continue
+
+            keypoints_data = result.keypoints.data.cpu().numpy()
+
+            for person_kpts in keypoints_data:
+                # person_kpts shape: (17, 3) -> x, y, visibility
+                skeletons.append(Skeleton(keypoints=person_kpts))
+
+        return skeletons
+

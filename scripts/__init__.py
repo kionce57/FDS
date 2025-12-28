@@ -8,15 +8,12 @@ import logging
 import time
 
 import cv2
-import numpy as np
 
 from src.analysis.delay_confirm import DelayConfirm, FallState
 from src.analysis.rule_engine import RuleEngine
-from src.analysis.pose_rule_engine import PoseRuleEngine
 from src.capture.rolling_buffer import FrameData, RollingBuffer
-from src.detection.detector import Detector, PoseDetector
+from src.detection.detector import Detector
 from src.detection.bbox import BBox
-from src.detection.skeleton import Skeleton
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def draw_bbox(frame: np.ndarray, bbox: BBox | None, state: FallState) -> np.ndarray:
+def draw_bbox(frame, bbox: BBox | None, state: FallState):
     """在畫面上繪製 bounding box 和狀態"""
     if bbox is None:
         return frame
@@ -54,50 +51,7 @@ def draw_bbox(frame: np.ndarray, bbox: BBox | None, state: FallState) -> np.ndar
     return frame
 
 
-def draw_skeleton(frame: np.ndarray, skeleton: Skeleton | None, state: FallState) -> np.ndarray:
-    """在畫面上繪製骨架和狀態"""
-    if skeleton is None:
-        return frame
-    
-    colors = {
-        FallState.NORMAL: (0, 255, 0),
-        FallState.SUSPECTED: (0, 255, 255),
-        FallState.CONFIRMED: (0, 0, 255),
-    }
-    color = colors.get(state, (255, 255, 255))
-    
-    # 繪製關鍵點
-    for i in range(17):
-        x, y, vis = skeleton.keypoints[i]
-        if vis > 0.3:
-            cv2.circle(frame, (int(x), int(y)), 5, color, -1)
-    
-    # 繪製連接線（軀幹）
-    connections = [
-        (5, 6),   # shoulders
-        (5, 11),  # left shoulder to hip
-        (6, 12),  # right shoulder to hip
-        (11, 12), # hips
-        (11, 13), # left hip to knee
-        (12, 14), # right hip to knee
-        (13, 15), # left knee to ankle
-        (14, 16), # right knee to ankle
-    ]
-    
-    for i, j in connections:
-        pt1 = skeleton.keypoints[i]
-        pt2 = skeleton.keypoints[j]
-        if pt1[2] > 0.3 and pt2[2] > 0.3:
-            cv2.line(frame, (int(pt1[0]), int(pt1[1])), (int(pt2[0]), int(pt2[1])), color, 2)
-    
-    # 顯示狀態和軀幹角度
-    text = f"{state.value} (angle: {skeleton.torso_angle:.1f}°)"
-    cv2.putText(frame, text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-    
-    return frame
-
-
-def test_video(video_path: str, show_window: bool = True, use_pose: bool = False) -> int:
+def test_video(video_path: str, show_window: bool = True):
     """使用影片測試跌倒偵測"""
     
     # 開啟影片
@@ -108,16 +62,10 @@ def test_video(video_path: str, show_window: bool = True, use_pose: bool = False
     
     fps = cap.get(cv2.CAP_PROP_FPS) or 15
     logger.info(f"影片 FPS: {fps}")
-    logger.info(f"偵測模式: {'Pose (骨架)' if use_pose else 'BBox (長寬比)'}")
     
     # 初始化模組
-    if use_pose:
-        detector = PoseDetector(model_path="yolov8n-pose.pt", confidence=0.5)
-        rule_engine = PoseRuleEngine(torso_angle_threshold=60.0)
-    else:
-        detector = Detector(model_path="yolov8n.pt", confidence=0.5, classes=[0])
-        rule_engine = RuleEngine(fall_threshold=1.3)
-    
+    detector = Detector(model_path="yolov8n.pt", confidence=0.5, classes=[0])
+    rule_engine = RuleEngine(fall_threshold=1.3)
     delay_confirm = DelayConfirm(delay_sec=3.0)
     rolling_buffer = RollingBuffer(buffer_seconds=10.0, fps=fps)
     
@@ -139,22 +87,18 @@ def test_video(video_path: str, show_window: bool = True, use_pose: bool = False
             frame_count += 1
             current_time = frame_count / fps
             
-            # 偵測
-            detections = detector.detect(frame)
-            detection = detections[0] if detections else None
+            # 偵測人體
+            bboxes = detector.detect(frame)
+            bbox = bboxes[0] if bboxes else None
             
             # 判斷是否跌倒
-            is_fallen = rule_engine.is_fallen(detection)
+            is_fallen = rule_engine.is_fallen(bbox)
             
             # 更新狀態機
             state = delay_confirm.update(is_fallen=is_fallen, current_time=current_time)
             
             # 儲存到 buffer
-            if use_pose:
-                bbox_tuple = None  # Pose mode doesn't track bbox
-            else:
-                bbox_tuple = (detection.x, detection.y, detection.width, detection.height) if detection else None
-            
+            bbox_tuple = (bbox.x, bbox.y, bbox.width, bbox.height) if bbox else None
             rolling_buffer.push(FrameData(
                 timestamp=current_time,
                 frame=frame.copy(),
@@ -163,23 +107,16 @@ def test_video(video_path: str, show_window: bool = True, use_pose: bool = False
             
             # 記錄狀態變化
             if state == FallState.SUSPECTED:
-                if use_pose and detection:
-                    logger.warning(f"[{current_time:.1f}s] 疑似跌倒! angle={detection.torso_angle:.1f}°")
-                elif detection:
-                    logger.warning(f"[{current_time:.1f}s] 疑似跌倒! ratio={detection.aspect_ratio:.2f}")
+                logger.warning(f"[{current_time:.1f}s] 疑似跌倒! ratio={bbox.aspect_ratio:.2f}" if bbox else "")
             elif state == FallState.CONFIRMED:
                 logger.error(f"[{current_time:.1f}s] ⚠️ 跌倒確認!")
             
             # 繪製視覺化
             if show_window:
-                if use_pose:
-                    display_frame = draw_skeleton(frame.copy(), detection, state)
-                else:
-                    display_frame = draw_bbox(frame.copy(), detection, state)
+                display_frame = draw_bbox(frame.copy(), bbox, state)
                 
                 # 顯示資訊
-                mode_text = "POSE" if use_pose else "BBOX"
-                info_text = f"[{mode_text}] Frame: {frame_count} | Time: {current_time:.1f}s | State: {state.value}"
+                info_text = f"Frame: {frame_count} | Time: {current_time:.1f}s | State: {state.value}"
                 cv2.putText(display_frame, info_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                 
                 cv2.imshow("Fall Detection Test", display_frame)
@@ -203,14 +140,13 @@ def test_video(video_path: str, show_window: bool = True, use_pose: bool = False
     return 0
 
 
-def main() -> int:
+def main():
     parser = argparse.ArgumentParser(description="使用影片檔案測試跌倒偵測系統")
     parser.add_argument("video", help="影片檔案路徑")
     parser.add_argument("--no-window", action="store_true", help="不顯示視窗（純 CLI 模式）")
-    parser.add_argument("--use-pose", action="store_true", help="使用骨架姿態偵測（預設使用 BBox 長寬比）")
     args = parser.parse_args()
     
-    return test_video(args.video, show_window=not args.no_window, use_pose=args.use_pose)
+    return test_video(args.video, show_window=not args.no_window)
 
 
 if __name__ == "__main__":

@@ -16,3 +16,6 @@ CLAUDE.md
 data/
 *.pt
 .env
+
+# others
+/.ruff_cache

@@ -12,6 +12,7 @@
 **應用場景**：居家長照，監測獨居長者，偵測跌倒後自動通知家人或照護人員。
 
 **Phase 1 目標**：
+
 - 建立端到端的跌倒偵測流程驗證
 - 使用物件偵測 + 規則判斷的輕量方案
 - 透過 LINE Notify 完成通知功能
@@ -19,15 +20,15 @@
 
 ### 技術選型
 
-| 項目 | 選擇 |
-|------|------|
-| 程式語言 | Python 3.12+ |
-| 物件偵測 | YOLOv8/YOLOv11 (nano 版本起步) |
+| 項目     | 選擇                                      |
+| -------- | ----------------------------------------- |
+| 程式語言 | Python 3.12+                              |
+| 物件偵測 | YOLOv8/YOLOv11 (nano 版本起步)            |
 | 跌倒判斷 | Bounding Box 長寬比規則，後續加入位移速度 |
-| 誤報處理 | 延遲確認機制（3 秒） |
-| 通知平台 | LINE Notify（架構預留擴充其他平台） |
-| 事件紀錄 | SQLite + 事件前後影片片段 |
-| 資料庫 | SQLite（結構化資料），檔案系統（影片） |
+| 誤報處理 | 延遲確認機制（3 秒）                      |
+| 通知平台 | LINE Notify（架構預留擴充其他平台）       |
+| 事件紀錄 | SQLite + 事件前後影片片段                 |
+| 資料庫   | SQLite（結構化資料），檔案系統（影片）    |
 
 ### 未來擴展方向（Phase 2+）
 
@@ -44,6 +45,7 @@
 ```
 /data
 ├── fds.db                    # SQLite 資料庫（事件 metadata）
+原生支援多人骨架偵測
 ├── clips/                    # 近期影片（7天）
 ├── snapshots/                # 關鍵截圖（30天）
 └── sync_queue/               # 待上傳佇列
@@ -87,12 +89,12 @@
 
 ### 優勢
 
-| 面向 | 效益 |
-|------|------|
-| **隱私** | 骨架資料無法還原人臉/身份，可安心上傳 |
-| **儲存** | 10 秒影片 ≈ 5MB → 骨架 JSON ≈ 50KB（壓縮 100 倍） |
-| **ML 價值** | 骨架序列可直接用於訓練 Phase 2 的姿態分類模型 |
-| **Phase 銜接** | Phase 1 收集的骨架資料，成為 Phase 2 的訓練素材 |
+| 面向           | 效益                                              |
+| -------------- | ------------------------------------------------- |
+| **隱私**       | 骨架資料無法還原人臉/身份，可安心上傳             |
+| **儲存**       | 10 秒影片 ≈ 5MB → 骨架 JSON ≈ 50KB（壓縮 100 倍） |
+| **ML 價值**    | 骨架序列可直接用於訓練 Phase 2 的姿態分類模型     |
+| **Phase 銜接** | Phase 1 收集的骨架資料，成為 Phase 2 的訓練素材   |
 
 ---
 
@@ -142,17 +144,17 @@
 
 ### 核心模組說明
 
-| 模組 | 職責 | 技術 |
-|------|------|------|
-| **Video Capture** | 攝影機串流擷取、幀率控制 | OpenCV |
-| **Rolling Buffer** | 環形緩衝區，保留最近 10 秒畫面 | collections.deque |
-| **YOLOv8 Detector** | 偵測畫面中的人體 bbox | Ultralytics |
-| **Rule Engine** | 分析 bbox 變化判斷跌倒 | 純 Python |
-| **Delay Confirm** | 延遲確認，減少誤報 | 狀態機 + Observer Pattern |
-| **Clip Recorder** | 錄製事件前後影片片段 | OpenCV / FFmpeg |
-| **Event Logger** | 事件與 metadata 持久化 | SQLite |
-| **Notifier** | 發送 LINE 推播通知 | LINE Notify API |
-| **Data Lifecycle** | 影片特徵化、清理、雲端同步 | MediaPipe + 排程 |
+| 模組                | 職責                           | 技術                      |
+| ------------------- | ------------------------------ | ------------------------- |
+| **Video Capture**   | 攝影機串流擷取、幀率控制       | OpenCV                    |
+| **Rolling Buffer**  | 環形緩衝區，保留最近 10 秒畫面 | collections.deque         |
+| **YOLOv8 Detector** | 偵測畫面中的人體 bbox          | Ultralytics               |
+| **Rule Engine**     | 分析 bbox 變化判斷跌倒         | 純 Python                 |
+| **Delay Confirm**   | 延遲確認，減少誤報             | 狀態機 + Observer Pattern |
+| **Clip Recorder**   | 錄製事件前後影片片段           | OpenCV / FFmpeg           |
+| **Event Logger**    | 事件與 metadata 持久化         | SQLite                    |
+| **Notifier**        | 發送 LINE 推播通知             | LINE Notify API           |
+| **Data Lifecycle**  | 影片特徵化、清理、雲端同步     | MediaPipe + 排程          |
 
 ### 資料流摘要
 
@@ -200,11 +202,11 @@ Rule Engine 計算長寬比（閾值 1.3）
 
 ### 狀態定義與轉換條件
 
-| 狀態 | 定義 | 進入條件 | 離開條件 |
-|------|------|----------|----------|
-| **NORMAL** | 正常監測中 | 初始狀態 / 恢復後 | 偵測到跌倒特徵 |
-| **SUSPECTED** | 疑似跌倒，觀察中 | bbox 長寬比 < 1.3 | 恢復 or 超時 |
-| **CONFIRMED** | 確認跌倒 | SUSPECTED 超過 3 秒 | 恢復站立 |
+| 狀態          | 定義             | 進入條件            | 離開條件       |
+| ------------- | ---------------- | ------------------- | -------------- |
+| **NORMAL**    | 正常監測中       | 初始狀態 / 恢復後   | 偵測到跌倒特徵 |
+| **SUSPECTED** | 疑似跌倒，觀察中 | bbox 長寬比 < 1.3   | 恢復 or 超時   |
+| **CONFIRMED** | 確認跌倒         | SUSPECTED 超過 3 秒 | 恢復站立       |
 
 ### Observer Pattern 實作
 
@@ -304,12 +306,12 @@ class DelayConfirm:
 
 ### 關鍵參數
 
-| 參數 | 值 | 說明 |
-|------|-----|------|
-| `fall_threshold` | `1.3` | 站立時 ratio > 1.3，低於視為跌倒 |
-| `delay_sec` | `3.0` | 延遲確認秒數（優先減少漏報） |
-| `same_event_window` | `60.0` | 60 秒內視為同一事件 |
-| `re_notify_interval` | `120.0` | 持續躺著時，每 2 分鐘重複通知 |
+| 參數                 | 值      | 說明                             |
+| -------------------- | ------- | -------------------------------- |
+| `fall_threshold`     | `1.3`   | 站立時 ratio > 1.3，低於視為跌倒 |
+| `delay_sec`          | `3.0`   | 延遲確認秒數（優先減少漏報）     |
+| `same_event_window`  | `60.0`  | 60 秒內視為同一事件              |
+| `re_notify_interval` | `120.0` | 持續躺著時，每 2 分鐘重複通知    |
 
 ---
 
@@ -435,17 +437,17 @@ fds/
 
 ### 模組職責與介面
 
-| 模組 | 職責 | 主要介面 |
-|------|------|----------|
-| `camera.py` | 攝影機連線、幀擷取 | `Camera.read() -> Frame` |
-| `rolling_buffer.py` | 環形緩衝區管理 | `RollingBuffer.push()` / `.get_clip()` |
-| `detector.py` | YOLO 人體偵測 | `Detector.detect(frame) -> list[BBox]` |
-| `rule_engine.py` | bbox 分析判斷 | `RuleEngine.is_fallen(bbox) -> bool` |
-| `delay_confirm.py` | 狀態機 + Observer | `DelayConfirm.update() -> FallState` |
-| `event_logger.py` | SQLite 寫入 | `EventLogger.log(event)` |
-| `clip_recorder.py` | 影片片段儲存 | `ClipRecorder.save(frames, event_id)` |
-| `notifier.py` | LINE 通知 | `Notifier.send(event)` |
-| `pipeline.py` | 組裝與運行主迴圈 | `Pipeline.run()` |
+| 模組                | 職責               | 主要介面                               |
+| ------------------- | ------------------ | -------------------------------------- |
+| `camera.py`         | 攝影機連線、幀擷取 | `Camera.read() -> Frame`               |
+| `rolling_buffer.py` | 環形緩衝區管理     | `RollingBuffer.push()` / `.get_clip()` |
+| `detector.py`       | YOLO 人體偵測      | `Detector.detect(frame) -> list[BBox]` |
+| `rule_engine.py`    | bbox 分析判斷      | `RuleEngine.is_fallen(bbox) -> bool`   |
+| `delay_confirm.py`  | 狀態機 + Observer  | `DelayConfirm.update() -> FallState`   |
+| `event_logger.py`   | SQLite 寫入        | `EventLogger.log(event)`               |
+| `clip_recorder.py`  | 影片片段儲存       | `ClipRecorder.save(frames, event_id)`  |
+| `notifier.py`       | LINE 通知          | `Notifier.send(event)`                 |
+| `pipeline.py`       | 組裝與運行主迴圈   | `Pipeline.run()`                       |
 
 ### 依賴關係
 
@@ -485,38 +487,38 @@ fds/
 ```yaml
 # 攝影機設定
 camera:
-  source: 0                    # 攝影機索引或 RTSP URL
+  source: 0 # 攝影機索引或 RTSP URL
   fps: 15
   resolution: [640, 480]
 
 # 偵測設定
 detection:
-  model: "yolov8n.pt"          # 模型檔案
+  model: "yolov8n.pt" # 模型檔案
   confidence: 0.5
-  classes: [0]                 # 只偵測 person
+  classes: [0] # 只偵測 person
 
 # 跌倒判斷
 analysis:
-  fall_threshold: 1.3          # 長寬比閾值
-  delay_sec: 3.0               # 延遲確認秒數
-  same_event_window: 60.0      # 同一事件判定窗口
-  re_notify_interval: 120.0    # 重複通知間隔
+  fall_threshold: 1.3 # 長寬比閾值
+  delay_sec: 3.0 # 延遲確認秒數
+  same_event_window: 60.0 # 同一事件判定窗口
+  re_notify_interval: 120.0 # 重複通知間隔
 
 # 影片錄製
 recording:
-  buffer_seconds: 10           # Rolling buffer 長度
-  clip_before_sec: 5           # 事件前錄製
-  clip_after_sec: 5            # 事件後錄製
+  buffer_seconds: 10 # Rolling buffer 長度
+  clip_before_sec: 5 # 事件前錄製
+  clip_after_sec: 5 # 事件後錄製
 
 # 通知
 notification:
-  line_token: "${LINE_NOTIFY_TOKEN}"  # 環境變數注入
+  line_token: "${LINE_NOTIFY_TOKEN}" # 環境變數注入
   enabled: true
 
 # 資料生命週期
 lifecycle:
-  clip_retention_days: 7       # 原始影片保留天數
-  skeleton_retention_days: 30  # 骨架資料保留天數
+  clip_retention_days: 7 # 原始影片保留天數
+  skeleton_retention_days: 30 # 骨架資料保留天數
 ```
 
 ---
@@ -529,11 +531,11 @@ lifecycle:
 
 ### 錯誤分類與處理策略
 
-| 錯誤類型 | 範例 | 處理策略 |
-|----------|------|----------|
-| **致命錯誤** | 攝影機斷線、模型載入失敗 | 立即通知維護者，系統進入安全模式 |
-| **可恢復錯誤** | 單幀偵測失敗、網路暫時中斷 | 記錄 log，重試，不中斷主流程 |
-| **業務異常** | 無法發送 LINE 通知 | 降級處理（本地警報），持續重試 |
+| 錯誤類型       | 範例                       | 處理策略                         |
+| -------------- | -------------------------- | -------------------------------- |
+| **致命錯誤**   | 攝影機斷線、模型載入失敗   | 立即通知維護者，系統進入安全模式 |
+| **可恢復錯誤** | 單幀偵測失敗、網路暫時中斷 | 記錄 log，重試，不中斷主流程     |
+| **業務異常**   | 無法發送 LINE 通知         | 降級處理（本地警報），持續重試   |
 
 ### 攝影機錯誤處理
 
@@ -609,6 +611,7 @@ class HealthStatus:
 ```
 
 健康檢查機制：
+
 - 每 60 秒檢查一次系統狀態
 - 攝影機/偵測器異常 → 通知維護者
 - 儲存空間 < 1GB → 觸發緊急清理
@@ -729,16 +732,19 @@ tests/fixtures/
 ## 10. Phase 1 實作優先順序
 
 1. **核心偵測流程**
+
    - Camera + Rolling Buffer
    - YOLOv8 Detector
    - Rule Engine (aspect ratio)
    - Delay Confirm 狀態機
 
 2. **事件處理**
+
    - Event Logger (SQLite)
    - Clip Recorder
 
 3. **通知整合**
+
    - LINE Notify
 
 4. **資料生命週期**（可延後）
