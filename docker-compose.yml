@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  fds:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fds:latest
+    container_name: fds-app
+
+    # Device access for camera
+    devices:
+      - /dev/video0:/dev/video0  # USB camera (adjust if needed)
+
+    # Privileged mode for camera access (use with caution)
+    # privileged: true
+
+    # Environment variables
+    environment:
+      - LINE_NOTIFY_TOKEN=${LINE_NOTIFY_TOKEN}
+      - PYTHONUNBUFFERED=1
+
+    # Volume mounts for data persistence
+    volumes:
+      - ./data:/app/data                    # Database and clips
+      - ./config:/app/config:ro             # Config files (read-only)
+      - ./logs:/app/logs                    # Application logs
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Network mode (host for better camera access)
+    # network_mode: host
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Cleanup scheduler (runs daily at 3 AM)
+  fds-cleanup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fds:latest
+    container_name: fds-cleanup
+
+    # Override command to run cleanup
+    command: ["python", "-m", "scripts.cleanup_clips"]
+
+    # Volume mounts (same as main app)
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config:ro
+
+    # Run once and exit
+    restart: "no"
+
+    # Profiles to run separately
+    profiles:
+      - cleanup

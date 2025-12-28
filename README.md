@@ -24,7 +24,37 @@ Camera → YOLO 偵測 → 規則判斷 → 延遲確認 → 通知/錄影/記�
 
 ## 快速開始
 
-### 安裝
+### 方式 1：Docker 部署（推薦，適合邊緣裝置）
+
+```bash
+# Clone 專案
+git clone <repository-url>
+cd FDS
+
+# 設定環境變數
+cp .env.example .env
+# 編輯 .env 設定 LINE_NOTIFY_TOKEN
+
+# 建構並啟動容器
+docker-compose up -d
+
+# 查看日誌
+docker-compose logs -f
+
+# 停止服務
+docker-compose down
+
+# 手動執行清理（刪除過期影片）
+docker-compose run --rm fds-cleanup
+```
+
+**Docker 優勢：**
+- ✅ 環境一致性（避免依賴問題）
+- ✅ 適合樹莓派/邊緣裝置部署
+- ✅ 資料持久化（自動 volume 掛載）
+- ✅ 輕鬆升級與回滾
+
+### 方式 2：本地開發
 
 ```bash
 # Clone 專案
@@ -62,11 +92,50 @@ analysis:
 
 ### 執行
 
+**Docker 模式：**
+```bash
+# 啟動服務（背景執行）
+docker-compose up -d
+
+# 查看即時日誌
+docker-compose logs -f fds
+
+# 重啟服務
+docker-compose restart fds
+```
+
+**本地開發模式：**
 ```bash
 # 執行主程式
 uv run python main.py
 
 # 按 Ctrl+C 停止
+```
+
+### Docker 進階設定
+
+**攝影機設備映射：**
+```yaml
+# docker-compose.yml 中修改
+devices:
+  - /dev/video0:/dev/video0  # USB 攝影機
+  # - /dev/video1:/dev/video1  # 多攝影機
+```
+
+**資源限制調整：**
+```yaml
+# docker-compose.yml 中修改
+deploy:
+  resources:
+    limits:
+      cpus: '2.0'      # 最多使用 2 個 CPU 核心
+      memory: 2G       # 最多使用 2GB RAM
+```
+
+**定時清理（Cron）：**
+```bash
+# 在主機上設定 crontab
+0 3 * * * cd /path/to/FDS && docker-compose run --rm fds-cleanup
 ```
 
 ## 開發

@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Development
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Data and logs (should be mounted as volumes)
+data/
+logs/
+*.db
+*.db-shm
+*.db-wal
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+.DS_Store
+
+# Test videos (large files)
+tests/fixtures/videos/*.mp4
+
+# Environment files
+.env
+.env.*
