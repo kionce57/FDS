@@ -206,21 +206,14 @@ src/
 
 ## 🐛 已知問題
 
-### 1. Validator 測試失敗（非關鍵）
+### ~~1. Validator 測試失敗（已修復）~~
 **檔案：** `tests/lifecycle/test_validator.py::TestSemanticValidation::test_too_many_keypoints_for_coco17`
 
-**錯誤：**
-```python
-AssertionError: Regex pattern did not match.
-  Expected regex: 'exceeds expected'
-  Actual message: "JSON Schema validation failed:..."
-```
+**問題：** 原測試使用 `kp_0`, `kp_1` 等名稱，但這些名稱包含數字，不符合 JSON Schema 的 `^[a-z_]+$` 模式。
 
-**原因：** JSON Schema 在結構驗證階段就拒絕了 `kp_0`, `kp_1` 等非標準命名，語義驗證沒機會執行。
+**修復：** 已於 2025-12-28 修正。改用 17 個標準 COCO17 關鍵點名稱加上 `extra_a`, `extra_b`, `extra_c`，成功觸發語義驗證錯誤。
 
-**影響：** 無影響，實際使用中不會有非標準 keypoint 名稱。
-
-**修復建議：** 修改測試用例，使用標準 keypoint 名稱但數量超過 17 個。
+**狀態：** ✅ 已修復，20/20 測試通過
 
 ### 2. Docker 攝影機訪問（平台限制）
 **問題：** Windows Docker Desktop 的攝影機映射較複雜

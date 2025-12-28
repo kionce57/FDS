@@ -1,6 +1,5 @@
 import json
 import pytest
-from pathlib import Path
 
 # 先嘗試 import，如果失敗則跳過所有測試
 pytest.importorskip("jsonschema")
@@ -26,22 +25,16 @@ class TestSkeletonValidator:
                 "duration_sec": 1.0,
                 "fps": 15,
                 "total_frames": 15,
-                "extractor": {
-                    "engine": "yolov8",
-                    "model": "yolov8n-pose.pt",
-                    "version": "8.0.0"
-                }
+                "extractor": {"engine": "yolov8", "model": "yolov8n-pose.pt", "version": "8.0.0"},
             },
             "keypoint_format": "coco17",
             "sequence": [
                 {
                     "frame_idx": 0,
                     "timestamp": 0.0,
-                    "keypoints": {
-                        "nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}
-                    }
+                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}},
                 }
-            ]
+            ],
         }
 
     def test_validator_init(self, validator):
@@ -96,12 +89,7 @@ class TestSkeletonValidator:
 
     def test_validate_with_bbox(self, validator, valid_data):
         """測試包含 bbox 的資料"""
-        valid_data["sequence"][0]["bbox"] = {
-            "x": 100,
-            "y": 50,
-            "width": 200,
-            "height": 300
-        }
+        valid_data["sequence"][0]["bbox"] = {"x": 100, "y": 50, "width": 200, "height": 300}
         assert validator.validate(valid_data) is True
 
     def test_validate_with_derived_features(self, validator, valid_data):
@@ -109,7 +97,7 @@ class TestSkeletonValidator:
         valid_data["sequence"][0]["derived_features"] = {
             "torso_angle": 12.5,
             "aspect_ratio": 1.75,
-            "center_of_mass": {"x": 0.5, "y": 0.5}
+            "center_of_mass": {"x": 0.5, "y": 0.5},
         }
         assert validator.validate(valid_data) is True
 
@@ -120,7 +108,7 @@ class TestSkeletonValidator:
             "fall_frame_idx": 0,
             "fall_timestamp": 0.0,
             "recovery_frame_idx": None,
-            "rule_triggered": "aspect_ratio_change"
+            "rule_triggered": "aspect_ratio_change",
         }
         assert validator.validate(valid_data) is True
 
@@ -134,6 +122,33 @@ class TestSemanticValidation:
 
     def test_too_many_keypoints_for_coco17(self, validator):
         """測試 COCO17 格式但關鍵點數量過多"""
+        # 使用所有 17 個 COCO17 關鍵點，再加上額外的有效名稱（符合 ^[a-z_]+$ 模式）
+        # 這樣可以通過 JSON Schema 結構驗證，但會在語義驗證階段失敗
+        coco17_keypoints = [
+            "nose",
+            "left_eye",
+            "right_eye",
+            "left_ear",
+            "right_ear",
+            "left_shoulder",
+            "right_shoulder",
+            "left_elbow",
+            "right_elbow",
+            "left_wrist",
+            "right_wrist",
+            "left_hip",
+            "right_hip",
+            "left_knee",
+            "right_knee",
+            "left_ankle",
+            "right_ankle",
+        ]
+        # 額外 3 個有效名稱（超過 17 個限制）
+        extra_keypoints = ["extra_a", "extra_b", "extra_c"]
+        all_keypoints = coco17_keypoints + extra_keypoints
+
+        keypoints_dict = {name: {"x": 0.5, "y": 0.5, "confidence": 0.9} for name in all_keypoints}
+
         data = {
             "version": "1.0",
             "metadata": {
@@ -143,20 +158,10 @@ class TestSemanticValidation:
                 "duration_sec": 1.0,
                 "fps": 15,
                 "total_frames": 15,
-                "extractor": {
-                    "engine": "yolov8",
-                    "model": "yolov8n-pose.pt",
-                    "version": "8.0.0"
-                }
+                "extractor": {"engine": "yolov8", "model": "yolov8n-pose.pt", "version": "8.0.0"},
             },
             "keypoint_format": "coco17",
-            "sequence": [
-                {
-                    "frame_idx": 0,
-                    "timestamp": 0.0,
-                    "keypoints": {f"kp_{i}": {"x": 0.5, "y": 0.5, "confidence": 0.9} for i in range(20)}
-                }
-            ]
+            "sequence": [{"frame_idx": 0, "timestamp": 0.0, "keypoints": keypoints_dict}],
         }
         with pytest.raises(ValidationError, match="exceeds expected"):
             validator.validate(data)
@@ -172,25 +177,21 @@ class TestSemanticValidation:
                 "duration_sec": 1.0,
                 "fps": 15,
                 "total_frames": 15,
-                "extractor": {
-                    "engine": "yolov8",
-                    "model": "yolov8n-pose.pt",
-                    "version": "8.0.0"
-                }
+                "extractor": {"engine": "yolov8", "model": "yolov8n-pose.pt", "version": "8.0.0"},
             },
             "keypoint_format": "coco17",
             "sequence": [
                 {
                     "frame_idx": 1,
                     "timestamp": 0.0,
-                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}}
+                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}},
                 },
                 {
                     "frame_idx": 0,
                     "timestamp": 0.1,
-                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}}
-                }
-            ]
+                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}},
+                },
+            ],
         }
         with pytest.raises(ValidationError, match="not in ascending order"):
             validator.validate(data)
@@ -206,25 +207,21 @@ class TestSemanticValidation:
                 "duration_sec": 1.0,
                 "fps": 15,
                 "total_frames": 15,
-                "extractor": {
-                    "engine": "yolov8",
-                    "model": "yolov8n-pose.pt",
-                    "version": "8.0.0"
-                }
+                "extractor": {"engine": "yolov8", "model": "yolov8n-pose.pt", "version": "8.0.0"},
             },
             "keypoint_format": "coco17",
             "sequence": [
                 {
                     "frame_idx": 0,
                     "timestamp": 0.1,
-                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}}
+                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}},
                 },
                 {
                     "frame_idx": 1,
                     "timestamp": 0.05,  # 時間倒退
-                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}}
-                }
-            ]
+                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}},
+                },
+            ],
         }
         with pytest.raises(ValidationError, match="not monotonic"):
             validator.validate(data)
@@ -240,25 +237,21 @@ class TestSemanticValidation:
                 "duration_sec": 1.0,
                 "fps": 15,
                 "total_frames": 1,  # 只有 1 幀
-                "extractor": {
-                    "engine": "yolov8",
-                    "model": "yolov8n-pose.pt",
-                    "version": "8.0.0"
-                }
+                "extractor": {"engine": "yolov8", "model": "yolov8n-pose.pt", "version": "8.0.0"},
             },
             "keypoint_format": "coco17",
             "sequence": [
                 {
                     "frame_idx": 0,
                     "timestamp": 0.0,
-                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}}
+                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}},
                 },
                 {
                     "frame_idx": 1,
                     "timestamp": 0.1,
-                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}}
-                }
-            ]
+                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}},
+                },
+            ],
         }
         with pytest.raises(ValidationError, match="exceeds total_frames"):
             validator.validate(data)
@@ -274,25 +267,21 @@ class TestSemanticValidation:
                 "duration_sec": 1.0,
                 "fps": 15,
                 "total_frames": 15,
-                "extractor": {
-                    "engine": "yolov8",
-                    "model": "yolov8n-pose.pt",
-                    "version": "8.0.0"
-                }
+                "extractor": {"engine": "yolov8", "model": "yolov8n-pose.pt", "version": "8.0.0"},
             },
             "keypoint_format": "coco17",
             "sequence": [
                 {
                     "frame_idx": 0,
                     "timestamp": 0.0,
-                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}}
+                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}},
                 }
             ],
             "analysis": {
                 "fall_detected": True,
                 "fall_frame_idx": 10,  # 超出 sequence 範圍
-                "fall_timestamp": 0.5
-            }
+                "fall_timestamp": 0.5,
+            },
         }
         with pytest.raises(ValidationError, match="exceeds maximum frame index"):
             validator.validate(data)
@@ -329,22 +318,16 @@ class TestValidateFile:
                 "duration_sec": 1.0,
                 "fps": 15,
                 "total_frames": 15,
-                "extractor": {
-                    "engine": "yolov8",
-                    "model": "yolov8n-pose.pt",
-                    "version": "8.0.0"
-                }
+                "extractor": {"engine": "yolov8", "model": "yolov8n-pose.pt", "version": "8.0.0"},
             },
             "keypoint_format": "coco17",
             "sequence": [
                 {
                     "frame_idx": 0,
                     "timestamp": 0.0,
-                    "keypoints": {
-                        "nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}
-                    }
+                    "keypoints": {"nose": {"x": 0.5, "y": 0.3, "confidence": 0.9}},
                 }
-            ]
+            ],
         }
 
         valid_file = tmp_path / "valid.json"
