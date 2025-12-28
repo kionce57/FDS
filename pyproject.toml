@@ -23,6 +23,7 @@ dev = [
 [project.scripts]
 fds = "main:main"
 fds-test-video = "scripts.test_with_video:main"
+fds-cleanup = "scripts.cleanup_clips:main"
 
 [build-system]
 requires = ["hatchling"]
