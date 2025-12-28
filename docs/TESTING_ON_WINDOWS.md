@@ -108,7 +108,7 @@ docker compose down
 2. **安裝 uv（Windows）**
    ```powershell
    # 在 PowerShell 中執行
-   irm https://astral.sh/uv/install.ps1 | iex
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
    ```
 
 3. **安裝 Git for Windows**
