@@ -9,9 +9,6 @@ wheels/
 # Virtual environments
 .venv
 
-# LLM
-CLAUDE.md
-
 # FDS
 data/
 *.pt
