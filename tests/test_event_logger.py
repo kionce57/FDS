@@ -1,6 +1,5 @@
 import pytest
 import sqlite3
-from pathlib import Path
 from src.events.event_logger import EventLogger
 from src.events.observer import FallEvent
 
@@ -23,9 +22,7 @@ class TestEventLogger:
 
     def test_creates_events_table(self, logger, db_path):
         conn = sqlite3.connect(str(db_path))
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='events'"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
         assert cursor.fetchone() is not None
         conn.close()
 
@@ -57,9 +54,7 @@ class TestEventLogger:
         logger.on_fall_recovered(event)
 
         conn = sqlite3.connect(str(db_path))
-        cursor = conn.execute(
-            "SELECT recovered_at FROM events WHERE event_id = ?", ("evt_123",)
-        )
+        cursor = conn.execute("SELECT recovered_at FROM events WHERE event_id = ?", ("evt_123",))
         row = cursor.fetchone()
         conn.close()
 

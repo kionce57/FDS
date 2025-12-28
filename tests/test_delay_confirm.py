@@ -1,4 +1,3 @@
-import pytest
 from src.analysis.delay_confirm import DelayConfirm, FallState
 from src.events.observer import FallEvent
 

@@ -1,7 +1,5 @@
 import pytest
-import os
-from pathlib import Path
-from src.core.config import Config, load_config
+from src.core.config import load_config
 
 
 class TestConfig:

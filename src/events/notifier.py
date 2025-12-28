@@ -35,11 +35,7 @@ class LineNotifier(FallEventObserver):
             return
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        message = (
-            f"\n✅ 已恢復\n"
-            f"事件 ID: {event.event_id}\n"
-            f"恢復時間: {timestamp}"
-        )
+        message = f"\n✅ 已恢復\n事件 ID: {event.event_id}\n恢復時間: {timestamp}"
         self._send(event, message)
 
     def _send(self, event: FallEvent, message: str) -> bool:
@@ -66,11 +62,7 @@ class LineNotifier(FallEventObserver):
         while self._pending_queue:
             event = self._pending_queue[0]
             timestamp = datetime.fromtimestamp(event.confirmed_at).strftime("%Y-%m-%d %H:%M:%S")
-            message = (
-                f"\n🚨 跌倒警報 (重試)!\n"
-                f"事件 ID: {event.event_id}\n"
-                f"時間: {timestamp}"
-            )
+            message = f"\n🚨 跌倒警報 (重試)!\n事件 ID: {event.event_id}\n時間: {timestamp}"
             try:
                 response = requests.post(
                     self.API_URL,

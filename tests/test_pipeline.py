@@ -1,10 +1,15 @@
 import pytest
 import numpy as np
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import patch
 from src.core.pipeline import Pipeline
 from src.core.config import (
-    Config, CameraConfig, DetectionConfig, AnalysisConfig,
-    RecordingConfig, NotificationConfig, LifecycleConfig
+    Config,
+    CameraConfig,
+    DetectionConfig,
+    AnalysisConfig,
+    RecordingConfig,
+    NotificationConfig,
+    LifecycleConfig,
 )
 from src.detection.bbox import BBox
 from src.analysis.delay_confirm import FallState
@@ -16,8 +21,7 @@ def mock_config():
         camera=CameraConfig(source=0, fps=15, resolution=[640, 480]),
         detection=DetectionConfig(model="yolov8n.pt", confidence=0.5, classes=[0]),
         analysis=AnalysisConfig(
-            fall_threshold=1.3, delay_sec=3.0,
-            same_event_window=60.0, re_notify_interval=120.0
+            fall_threshold=1.3, delay_sec=3.0, same_event_window=60.0, re_notify_interval=120.0
         ),
         recording=RecordingConfig(buffer_seconds=10, clip_before_sec=5, clip_after_sec=5),
         notification=NotificationConfig(line_token="test", enabled=False),
@@ -27,17 +31,20 @@ def mock_config():
 
 class TestPipeline:
     def test_pipeline_init(self, mock_config):
-        with patch("src.core.pipeline.Camera"), \
-             patch("src.core.pipeline.Detector"), \
-             patch("src.core.pipeline.EventLogger"):
+        with (
+            patch("src.core.pipeline.Camera"),
+            patch("src.core.pipeline.Detector"),
+            patch("src.core.pipeline.EventLogger"),
+        ):
             pipeline = Pipeline(config=mock_config)
             assert pipeline.config == mock_config
 
     def test_process_frame_no_detection(self, mock_config):
-        with patch("src.core.pipeline.Camera"), \
-             patch("src.core.pipeline.Detector") as mock_detector, \
-             patch("src.core.pipeline.EventLogger"):
-
+        with (
+            patch("src.core.pipeline.Camera"),
+            patch("src.core.pipeline.Detector") as mock_detector,
+            patch("src.core.pipeline.EventLogger"),
+        ):
             mock_detector.return_value.detect.return_value = []
 
             pipeline = Pipeline(config=mock_config)
@@ -47,10 +54,11 @@ class TestPipeline:
             assert state == FallState.NORMAL
 
     def test_process_frame_standing_person(self, mock_config):
-        with patch("src.core.pipeline.Camera"), \
-             patch("src.core.pipeline.Detector") as mock_detector, \
-             patch("src.core.pipeline.EventLogger"):
-
+        with (
+            patch("src.core.pipeline.Camera"),
+            patch("src.core.pipeline.Detector") as mock_detector,
+            patch("src.core.pipeline.EventLogger"),
+        ):
             standing_bbox = BBox(x=100, y=50, width=100, height=200)
             mock_detector.return_value.detect.return_value = [standing_bbox]
 
@@ -61,10 +69,11 @@ class TestPipeline:
             assert state == FallState.NORMAL
 
     def test_process_frame_fallen_person_suspected(self, mock_config):
-        with patch("src.core.pipeline.Camera"), \
-             patch("src.core.pipeline.Detector") as mock_detector, \
-             patch("src.core.pipeline.EventLogger"):
-
+        with (
+            patch("src.core.pipeline.Camera"),
+            patch("src.core.pipeline.Detector") as mock_detector,
+            patch("src.core.pipeline.EventLogger"),
+        ):
             fallen_bbox = BBox(x=100, y=50, width=200, height=100)
             mock_detector.return_value.detect.return_value = [fallen_bbox]
 

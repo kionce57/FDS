@@ -1,6 +1,5 @@
-import pytest
 import numpy as np
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 from src.detection.detector import Detector
 from src.detection.bbox import BBox
 
@@ -15,10 +14,12 @@ class TestDetector:
     def test_detect_returns_bboxes(self):
         with patch("src.detection.detector.YOLO") as mock_yolo:
             mock_result = MagicMock()
-            mock_result.boxes.xyxy.cpu.return_value.numpy.return_value = np.array([
-                [100, 50, 200, 250],
-                [300, 100, 400, 300],
-            ])
+            mock_result.boxes.xyxy.cpu.return_value.numpy.return_value = np.array(
+                [
+                    [100, 50, 200, 250],
+                    [300, 100, 400, 300],
+                ]
+            )
             mock_result.boxes.cls.cpu.return_value.numpy.return_value = np.array([0, 0])
             mock_result.boxes.conf.cpu.return_value.numpy.return_value = np.array([0.9, 0.8])
 
@@ -38,10 +39,12 @@ class TestDetector:
     def test_detect_filters_by_class(self):
         with patch("src.detection.detector.YOLO") as mock_yolo:
             mock_result = MagicMock()
-            mock_result.boxes.xyxy.cpu.return_value.numpy.return_value = np.array([
-                [100, 50, 200, 250],
-                [300, 100, 400, 300],
-            ])
+            mock_result.boxes.xyxy.cpu.return_value.numpy.return_value = np.array(
+                [
+                    [100, 50, 200, 250],
+                    [300, 100, 400, 300],
+                ]
+            )
             mock_result.boxes.cls.cpu.return_value.numpy.return_value = np.array([0, 1])
             mock_result.boxes.conf.cpu.return_value.numpy.return_value = np.array([0.9, 0.8])
 

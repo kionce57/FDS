@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from src.capture.camera import Camera, CameraError
 
 

@@ -1,5 +1,4 @@
-import pytest
-from src.events.observer import FallEvent, FallEventObserver
+from src.events.observer import FallEvent
 
 
 class MockObserver:
@@ -17,10 +16,7 @@ class MockObserver:
 class TestFallEvent:
     def test_create_event(self):
         event = FallEvent(
-            event_id="evt_123",
-            confirmed_at=1000.0,
-            last_notified_at=1000.0,
-            notification_count=1
+            event_id="evt_123", confirmed_at=1000.0, last_notified_at=1000.0, notification_count=1
         )
         assert event.event_id == "evt_123"
         assert event.confirmed_at == 1000.0
@@ -28,10 +24,7 @@ class TestFallEvent:
 
     def test_event_is_mutable(self):
         event = FallEvent(
-            event_id="evt_123",
-            confirmed_at=1000.0,
-            last_notified_at=1000.0,
-            notification_count=1
+            event_id="evt_123", confirmed_at=1000.0, last_notified_at=1000.0, notification_count=1
         )
         event.notification_count = 2
         event.last_notified_at = 1100.0

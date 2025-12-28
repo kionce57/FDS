@@ -1,7 +1,6 @@
 import pytest
 import numpy as np
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from src.events.clip_recorder import ClipRecorder
 from src.capture.rolling_buffer import FrameData
 

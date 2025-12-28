@@ -1,4 +1,3 @@
-import pytest
 import numpy as np
 from src.capture.rolling_buffer import RollingBuffer, FrameData
 

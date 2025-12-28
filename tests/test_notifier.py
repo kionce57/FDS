@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from src.events.notifier import LineNotifier
 from src.events.observer import FallEvent
 
