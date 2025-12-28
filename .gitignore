@@ -19,3 +19,4 @@ data/
 
 # others
 /.ruff_cache
+/output
