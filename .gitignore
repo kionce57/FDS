@@ -11,3 +11,8 @@ wheels/
 
 # LLM
 CLAUDE.md
+
+# FDS
+data/
+*.pt
+.env
