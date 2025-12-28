@@ -1,0 +1,228 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FDS Skeleton Sequence Schema",
+  "description": "骨架序列資料格式定義，用於 Fall Detection System",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["version", "metadata", "keypoint_format", "sequence"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "Schema 版本號 (semver major.minor)"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["event_id", "timestamp", "source_video", "duration_sec", "fps", "total_frames", "extractor"],
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "pattern": "^evt_\\d+$",
+          "description": "事件唯一識別碼，格式: evt_{unix_timestamp}"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "事件時間戳記 (ISO 8601 格式)"
+        },
+        "source_video": {
+          "type": "string",
+          "minLength": 1,
+          "description": "原始影片檔案路徑"
+        },
+        "duration_sec": {
+          "type": "number",
+          "minimum": 0,
+          "description": "影片長度（秒）"
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120,
+          "description": "影片幀率 (frames per second)"
+        },
+        "total_frames": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "總幀數"
+        },
+        "extractor": {
+          "type": "object",
+          "required": ["engine", "model", "version"],
+          "additionalProperties": false,
+          "properties": {
+            "engine": {
+              "type": "string",
+              "enum": ["yolov8", "mediapipe"],
+              "description": "骨架提取引擎"
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "description": "使用的模型名稱"
+            },
+            "version": {
+              "type": "string",
+              "pattern": "^\\d+\\.\\d+\\.\\d+$",
+              "description": "模型版本號 (semver)"
+            }
+          }
+        }
+      }
+    },
+    "keypoint_format": {
+      "type": "string",
+      "enum": ["coco17", "mediapipe33"],
+      "description": "關鍵點格式"
+    },
+    "sequence": {
+      "type": "array",
+      "minItems": 1,
+      "description": "骨架序列（至少包含一幀）",
+      "items": {
+        "type": "object",
+        "required": ["frame_idx", "timestamp", "keypoints"],
+        "additionalProperties": false,
+        "properties": {
+          "frame_idx": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "幀索引（從 0 開始）"
+          },
+          "timestamp": {
+            "type": "number",
+            "minimum": 0,
+            "description": "相對時間戳記（秒）"
+          },
+          "keypoints": {
+            "type": "object",
+            "minProperties": 1,
+            "description": "關鍵點字典",
+            "patternProperties": {
+              "^[a-z_]+$": {
+                "type": "object",
+                "required": ["x", "y", "confidence"],
+                "additionalProperties": false,
+                "properties": {
+                  "x": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "正規化 x 座標 [0, 1]"
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "正規化 y 座標 [0, 1]"
+                  },
+                  "confidence": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "置信度 [0, 1]"
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "bbox": {
+            "type": ["object", "null"],
+            "required": ["x", "y", "width", "height"],
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "type": "integer",
+                "description": "BBox 左上角 x 座標（像素）"
+              },
+              "y": {
+                "type": "integer",
+                "description": "BBox 左上角 y 座標（像素）"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "BBox 寬度（像素）"
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "BBox 高度（像素）"
+              }
+            }
+          },
+          "derived_features": {
+            "type": ["object", "null"],
+            "required": ["torso_angle", "aspect_ratio", "center_of_mass"],
+            "additionalProperties": false,
+            "properties": {
+              "torso_angle": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180,
+                "description": "軀幹角度（度）"
+              },
+              "aspect_ratio": {
+                "type": "number",
+                "minimum": 0,
+                "description": "長寬比"
+              },
+              "center_of_mass": {
+                "type": "object",
+                "required": ["x", "y"],
+                "additionalProperties": false,
+                "properties": {
+                  "x": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "質心 x 座標（正規化）"
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "質心 y 座標（正規化）"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "analysis": {
+      "type": ["object", "null"],
+      "required": ["fall_detected"],
+      "additionalProperties": false,
+      "properties": {
+        "fall_detected": {
+          "type": "boolean",
+          "description": "是否偵測到跌倒"
+        },
+        "fall_frame_idx": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "跌倒發生的幀索引"
+        },
+        "fall_timestamp": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "跌倒發生的時間戳記"
+        },
+        "recovery_frame_idx": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "恢復的幀索引"
+        },
+        "rule_triggered": {
+          "type": ["string", "null"],
+          "description": "觸發的規則名稱"
+        }
+      }
+    }
+  }
+}
