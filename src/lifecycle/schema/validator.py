@@ -60,7 +60,7 @@ class SkeletonValidator:
         if not self.schema_path.exists():
             raise FileNotFoundError(f"Schema file not found: {self.schema_path}")
 
-        self.schema = json.loads(self.schema_path.read_text())
+        self.schema = json.loads(self.schema_path.read_text(encoding='utf-8'))
         self.validator = Draft7Validator(self.schema)
 
     def validate(self, data: dict) -> bool:
@@ -170,7 +170,7 @@ class SkeletonValidator:
             raise FileNotFoundError(f"File not found: {file_path}")
 
         try:
-            data = json.loads(file_path.read_text())
+            data = json.loads(file_path.read_text(encoding='utf-8'))
         except json.JSONDecodeError as e:
             raise ValidationError(f"Invalid JSON: {e}")
 

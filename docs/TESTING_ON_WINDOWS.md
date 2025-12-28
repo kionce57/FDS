@@ -132,6 +132,7 @@ cd FDS-Windows
 ```
 
 **或者直接在 Windows 文件系統訪問 WSL2 專案：**
+
 ```powershell
 # WSL2 專案可從 Windows 訪問
 cd \\wsl$\Ubuntu\home\kionc9986\Projects\FDS
@@ -187,6 +188,36 @@ validator = SkeletonValidator()
 is_valid = validator.validate_file(output_path)
 print(f'驗證結果: {'通過' if is_valid else '失敗'}')
 "@
+```
+
+### 步驟 5：即時視覺化骨架提取（推薦）
+
+使用內建測試腳本即時觀看骨架偵測效果：
+
+```powershell
+# 使用 Pose 模式（骨架偵測）並顯示即時視窗
+uv run python -m scripts.test_with_video tests/fixtures/videos/fall-01-cam0.mp4 --use-pose
+```
+
+**視窗功能：**
+
+- 🟢 綠色骨架 = 正常狀態 (NORMAL)
+- 🟡 黃色骨架 = 疑似跌倒 (SUSPECTED)
+- 🔴 紅色骨架 = 確認跌倒 (CONFIRMED)
+- 顯示軀幹角度（angle）
+
+**控制鍵：**
+
+- `q` - 退出
+- `p` - 暫停/繼續
+
+**其他模式：**
+```powershell
+# BBox 長寬比模式（預設）
+uv run python -m scripts.test_with_video tests/fixtures/videos/fall-01-cam0.mp4
+
+# 無視窗純 CLI 模式
+uv run python -m scripts.test_with_video tests/fixtures/videos/fall-01-cam0.mp4 --use-pose --no-window
 ```
 
 ---
