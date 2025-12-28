@@ -200,3 +200,7 @@ fds-test-video = "scripts.test_with_video:main"
 ```
 
 安裝後可直接執行 `fds` 和 `fds-test-video` 指令。
+
+
+## Output
+- 總是使用英文思考, 使用繁體中文進行輸出
