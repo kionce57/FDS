@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class Pipeline:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, db_path: str = "data/fds.db"):
         self.config = config
 
         self.camera = Camera(
@@ -47,7 +47,7 @@ class Pipeline:
             fps=config.camera.fps,
         )
 
-        self.event_logger = EventLogger()
+        self.event_logger = EventLogger(db_path=db_path)
         self.clip_recorder = ClipRecorder(fps=config.camera.fps)
         self.notifier = LineNotifier(
             token=config.notification.line_token,

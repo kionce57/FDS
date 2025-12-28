@@ -13,6 +13,9 @@ wheels/
 data/
 *.pt
 .env
+*.db
+*.db-shm
+*.db-wal
 
 # others
 /.ruff_cache

@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from src.core.config import (
     Config,
     CameraConfig,
@@ -35,14 +35,12 @@ class TestFullPipeline:
         with (
             patch("src.core.pipeline.Camera"),
             patch("src.core.pipeline.Detector") as mock_detector,
-            patch("src.events.event_logger.Path") as mock_path,
         ):
-            mock_path.return_value.parent.mkdir = MagicMock()
-
             standing_bbox = BBox(x=100, y=50, width=100, height=200)
             fallen_bbox = BBox(x=100, y=50, width=200, height=100)
 
-            pipeline = Pipeline(config=test_config)
+            db_path = str(tmp_path / "test_fds.db")
+            pipeline = Pipeline(config=test_config, db_path=db_path)
             frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
             mock_detector.return_value.detect.return_value = [standing_bbox]
