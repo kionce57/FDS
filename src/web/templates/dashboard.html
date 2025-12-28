@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}儀表板 - FDS Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>📊 系統儀表板</h1>
+    <p class="subtitle">Fall Detection System 監控中心</p>
+</div>
+
+<!-- 系統狀態 -->
+<section class="section">
+    <h2 class="section-title">系統狀態</h2>
+    <div class="status-cards">
+        <div class="card status-card {% if db_connected %}status-online{% else %}status-offline{% endif %}">
+            <div class="card-icon">{% if db_connected %}🟢{% else %}🔴{% endif %}</div>
+            <div class="card-content">
+                <h3>資料庫狀態</h3>
+                <p class="status-text">{% if db_connected %}已連線{% else %}未連線{% endif %}</p>
+            </div>
+        </div>
+        <div class="card status-card status-online">
+            <div class="card-icon">🌐</div>
+            <div class="card-content">
+                <h3>Web Server</h3>
+                <p class="status-text">運行中</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- 統計資訊 -->
+{% if stats %}
+<section class="section">
+    <h2 class="section-title">事件統計</h2>
+    <div class="stats-grid">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.total_events }}</div>
+            <div class="stat-label">總事件數</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.today_events }}</div>
+            <div class="stat-label">今日事件</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.this_week_events }}</div>
+            <div class="stat-label">本週事件</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-value">{{ "%.1f"|format(stats.total_clips_size_mb) }} MB</div>
+            <div class="stat-label">影片總大小</div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- 最近事件 -->
+<section class="section">
+    <div class="section-header">
+        <h2 class="section-title">最近事件</h2>
+        <a href="/events" class="btn btn-secondary">查看全部</a>
+    </div>
+    
+    {% if recent_events %}
+    <div class="events-list">
+        {% for event in recent_events %}
+        <div class="card event-card">
+            <div class="event-info">
+                <div class="event-id">{{ event.event_id }}</div>
+                <div class="event-time">{{ event.created_at_local }}</div>
+            </div>
+            <div class="event-status">
+                {% if event.has_clip %}
+                <span class="badge badge-success">有影片</span>
+                {% else %}
+                <span class="badge badge-secondary">無影片</span>
+                {% endif %}
+            </div>
+            <div class="event-actions">
+                <a href="/events/{{ event.event_id }}" class="btn btn-primary btn-sm">查看詳情</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <p>尚無事件記錄</p>
+        {% if not db_connected %}
+        <p class="text-muted">資料庫未連線或不存在</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

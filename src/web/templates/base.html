@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}FDS Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="container">
+        <a href="/" class="logo">
+          <span class="logo-icon">🛡️</span>
+          <span class="logo-text">FDS Dashboard</span>
+        </a>
+        <ul class="nav-links">
+          <li>
+            <a
+              href="/"
+              class="{% if request.url.path == '/' %}active{% endif %}"
+              >儀表板</a
+            >
+          </li>
+          <li>
+            <a
+              href="/events"
+              class="{% if '/events' in request.url.path %}active{% endif %}"
+              >事件記錄</a
+            >
+          </li>
+          <li><a href="/docs" target="_blank">API 文檔</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <div class="container">{% block content %}{% endblock %}</div>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        <p>FDS - Fall Detection System &copy; 2025</p>
+      </div>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+    {% block extra_scripts %}{% endblock %}
+  </body>
+</html>
