@@ -44,6 +44,8 @@ class NotificationConfig:
 class LifecycleConfig:
     clip_retention_days: int
     skeleton_retention_days: int
+    cleanup_enabled: bool = True
+    cleanup_schedule_hours: int = 24
 
 
 @dataclass

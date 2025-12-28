@@ -136,6 +136,31 @@ src/
   uv run fds-cleanup --retention-days 14
   ```
 
+#### Task 17.1: Automated Cleanup Scheduler ✅
+- **日期：** 2025-12-28
+- **檔案：**
+  - `src/lifecycle/cleanup_scheduler.py` - APScheduler 背景排程器
+  - `tests/lifecycle/test_cleanup_scheduler.py` (9 個測試)
+  - `src/core/config.py` - 新增 `cleanup_enabled`, `cleanup_schedule_hours` 欄位
+  - `config/settings.yaml` - 新增排程設定選項
+  - `main.py` - 整合排程器，支援優雅關閉
+  - `pyproject.toml` - 新增 `apscheduler>=3.10.0` 依賴
+- **功能：**
+  - 使用 APScheduler BackgroundScheduler 背景執行
+  - 可設定執行間隔（預設 24 小時）
+  - 可透過 `cleanup_enabled=false` 停用
+  - 支援手動觸發 `run_now()`
+  - 優雅關閉處理（SIGINT/SIGTERM）
+- **設定範例：**
+  ```yaml
+  lifecycle:
+    cleanup_enabled: true
+    cleanup_schedule_hours: 24
+  ```
+- **測試結果：**
+  - 9/9 單元測試通過
+  - 包含整合測試驗證排程執行
+
 #### Docker Containerization ✅
 - **Commit:** `2a01bf9`
 - **檔案：**

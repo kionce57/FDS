@@ -26,3 +26,5 @@ notification:
 lifecycle:
   clip_retention_days: 7
   skeleton_retention_days: 30
+  cleanup_enabled: true
+  cleanup_schedule_hours: 24
