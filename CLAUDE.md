@@ -244,6 +244,7 @@ fds = "main:main"                             # 主程式（即時偵測）
 fds-test-video = "scripts.test_with_video:main"  # 影片測試工具
 fds-cleanup = "scripts.cleanup_clips:main"      # 清理過期檔案
 fds-web = "src.web.app:main"                   # Web Dashboard
+fds-cloud-sync = "scripts.cloud_sync:main"      # Cloud Sync 骨架上傳
 ```
 
 安裝後可直接執行這些 CLI 指令。
@@ -271,6 +272,28 @@ FDS 提供 FastAPI 網頁儀表板，用於查詢歷史事件和影片播放。
 - 預設監聽 port 8000
 - 透過 volume 掛載共享 `data/` 目錄存取資料庫和影片
 
+## Cloud Sync Commands
+
+**上傳骨架到 GCS:**
+```bash
+# 上傳所有待上傳的骨架
+fds-cloud-sync --upload-pending
+
+# 重試失敗的上傳
+fds-cloud-sync --retry-failed
+
+# 上傳特定事件
+fds-cloud-sync --event-id evt_1735459200
+
+# 查看上傳狀態
+fds-cloud-sync --status
+
+# 乾運行模式（測試用）
+fds-cloud-sync --upload-pending --dry-run
+```
+
+**GCP 設定:**
+參閱 `docs/plans/2025-12-29-cloud-sync-design.md` Section 5 完整設定指南。
 
 ## Output
 - 總是使用英文思考, 使用繁體中文進行輸出
