@@ -1,7 +1,6 @@
 import pytest
 import numpy as np
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 
 from src.lifecycle.skeleton_extractor import SkeletonExtractor
 from src.lifecycle.schema import SkeletonSequence
@@ -58,7 +57,7 @@ class TestSkeletonExtractor:
         """測試從影片提取骨架序列"""
         with (
             patch("cv2.VideoCapture") as mock_cap,
-            patch.object(extractor.detector, "detect") as mock_detect,
+            patch.object(extractor.detector, "detect") as mock_detect,  # noqa: F841
             patch("pathlib.Path.exists", return_value=True),
         ):
             # 模擬影片
@@ -92,7 +91,7 @@ class TestSkeletonExtractor:
         """測試提取的序列包含正確的 metadata"""
         with (
             patch("cv2.VideoCapture") as mock_cap,
-            patch.object(extractor.detector, "detect") as mock_detect,
+            patch.object(extractor.detector, "detect") as mock_detect,  # noqa: F841
             patch("pathlib.Path.exists", return_value=True),
         ):
             mock_instance = mock_cap.return_value
@@ -111,7 +110,7 @@ class TestSkeletonExtractor:
         """測試 Skeleton 正確轉換為 COCO17 格式"""
         with (
             patch("cv2.VideoCapture") as mock_cap,
-            patch.object(extractor.detector, "detect") as mock_detect,
+            patch.object(extractor.detector, "detect") as mock_detect,  # noqa: F841
             patch("pathlib.Path.exists", return_value=True),
         ):
             mock_instance = mock_cap.return_value
@@ -135,7 +134,7 @@ class TestSkeletonExtractor:
         """測試處理無偵測結果的情況"""
         with (
             patch("cv2.VideoCapture") as mock_cap,
-            patch.object(extractor.detector, "detect") as mock_detect,
+            patch.object(extractor.detector, "detect") as mock_detect,  # noqa: F841
             patch("pathlib.Path.exists", return_value=True),
         ):
             mock_instance = mock_cap.return_value
@@ -158,7 +157,7 @@ class TestSkeletonExtractor:
 
         with (
             patch("cv2.VideoCapture") as mock_cap,
-            patch.object(extractor.detector, "detect") as mock_detect,
+            patch.object(extractor.detector, "detect") as mock_detect,  # noqa: F841
             patch("pathlib.Path.exists", return_value=True),
         ):
             mock_instance = mock_cap.return_value

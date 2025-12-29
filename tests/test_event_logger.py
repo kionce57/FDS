@@ -93,13 +93,12 @@ class TestEventLogger:
             event_id="evt_test_001",
             confirmed_at=1234567890.0,
             last_notified_at=1234567890.0,
-            notification_count=1
+            notification_count=1,
         )
         logger.on_fall_confirmed(event)
 
         cursor = logger.conn.execute(
-            "SELECT skeleton_upload_status FROM events WHERE event_id = ?",
-            ("evt_test_001",)
+            "SELECT skeleton_upload_status FROM events WHERE event_id = ?", ("evt_test_001",)
         )
         status = cursor.fetchone()[0]
         assert status == "pending"
@@ -110,7 +109,7 @@ class TestEventLogger:
             event_id="evt_test_002",
             confirmed_at=1234567890.0,
             last_notified_at=1234567890.0,
-            notification_count=1
+            notification_count=1,
         )
         logger.on_fall_confirmed(event)
 
@@ -118,12 +117,12 @@ class TestEventLogger:
             event_id="evt_test_002",
             cloud_path="2025/12/29/evt_test_002.json",
             status="uploaded",
-            error=None
+            error=None,
         )
 
         cursor = logger.conn.execute(
             "SELECT skeleton_cloud_path, skeleton_upload_status, skeleton_upload_error FROM events WHERE event_id = ?",
-            ("evt_test_002",)
+            ("evt_test_002",),
         )
         cloud_path, status, error = cursor.fetchone()
 
@@ -137,7 +136,7 @@ class TestEventLogger:
             event_id="evt_test_003",
             confirmed_at=1234567890.0,
             last_notified_at=1234567890.0,
-            notification_count=1
+            notification_count=1,
         )
         logger.on_fall_confirmed(event)
 
@@ -145,12 +144,12 @@ class TestEventLogger:
             event_id="evt_test_003",
             cloud_path=None,
             status="failed",
-            error="NetworkError: Connection timeout"
+            error="NetworkError: Connection timeout",
         )
 
         cursor = logger.conn.execute(
             "SELECT skeleton_upload_status, skeleton_upload_error FROM events WHERE event_id = ?",
-            ("evt_test_003",)
+            ("evt_test_003",),
         )
         status, error = cursor.fetchone()
 

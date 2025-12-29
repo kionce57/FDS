@@ -1,4 +1,5 @@
 """Pose-based rule engine for fall detection using skeleton keypoints."""
+
 from src.detection.skeleton import Skeleton
 
 
@@ -21,7 +22,7 @@ class PoseRuleEngine:
 
     def is_fallen(self, skeleton: Skeleton | None) -> bool:
         """Determine if the skeleton pose indicates a fall.
-        
+
         Uses torso angle as the primary indicator:
         - Standing: torso near vertical (angle < threshold)
         - Fallen: torso near horizontal (angle >= threshold)
@@ -45,7 +46,7 @@ class PoseRuleEngine:
             skeleton.left_hip,
             skeleton.right_hip,
         ]
-        
+
         for point in required_points:
             if point[2] < self.min_visibility:
                 return False
@@ -53,7 +54,7 @@ class PoseRuleEngine:
 
     def get_fall_confidence(self, skeleton: Skeleton | None) -> float:
         """Get confidence score for fall detection (0.0 to 1.0).
-        
+
         Higher value = more confident the person has fallen.
         """
         if skeleton is None:
@@ -63,7 +64,7 @@ class PoseRuleEngine:
             return 0.0
 
         torso_angle = skeleton.torso_angle
-        
+
         # Map torso angle to confidence
         # 0-30 degrees: low confidence (standing)
         # 30-60 degrees: medium confidence (crouching/sitting)

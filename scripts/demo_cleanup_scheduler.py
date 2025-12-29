@@ -17,7 +17,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-from src.core.config import load_config, LifecycleConfig, Config
+from src.core.config import load_config
 from src.lifecycle.cleanup_scheduler import CleanupScheduler
 
 
@@ -188,7 +188,7 @@ def run_demo():
 
     result = scheduler.run_now()
 
-    print(f"\n📊 清理結果:")
+    print("\n📊 清理結果:")
     print(f"   刪除檔案數: {result['deleted_count']}")
     print(f"   釋放空間: {result['freed_bytes'] / 1024:.1f} KB")
     print(f"   跳過檔案數: {result['skipped_count']}")

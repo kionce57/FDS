@@ -69,4 +69,3 @@ class PoseDetector:
                 skeletons.append(Skeleton(keypoints=person_kpts))
 
         return skeletons
-

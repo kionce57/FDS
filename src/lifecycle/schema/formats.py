@@ -9,6 +9,7 @@ from enum import Enum
 
 class KeypointFormat(str, Enum):
     """支援的關鍵點格式"""
+
     COCO17 = "coco17"
     MEDIAPIPE33 = "mediapipe33"
 
@@ -101,27 +102,27 @@ MEDIAPIPE_TO_COCO17 = {
 # COCO17 骨架連接（用於視覺化）
 COCO17_SKELETON = [
     # 頭部
-    (0, 1),   # nose -> left_eye
-    (0, 2),   # nose -> right_eye
-    (1, 3),   # left_eye -> left_ear
-    (2, 4),   # right_eye -> right_ear
+    (0, 1),  # nose -> left_eye
+    (0, 2),  # nose -> right_eye
+    (1, 3),  # left_eye -> left_ear
+    (2, 4),  # right_eye -> right_ear
     # 軀幹
-    (5, 6),   # left_shoulder -> right_shoulder
+    (5, 6),  # left_shoulder -> right_shoulder
     (5, 11),  # left_shoulder -> left_hip
     (6, 12),  # right_shoulder -> right_hip
-    (11, 12), # left_hip -> right_hip
+    (11, 12),  # left_hip -> right_hip
     # 左手臂
-    (5, 7),   # left_shoulder -> left_elbow
-    (7, 9),   # left_elbow -> left_wrist
+    (5, 7),  # left_shoulder -> left_elbow
+    (7, 9),  # left_elbow -> left_wrist
     # 右手臂
-    (6, 8),   # right_shoulder -> right_elbow
+    (6, 8),  # right_shoulder -> right_elbow
     (8, 10),  # right_elbow -> right_wrist
     # 左腿
-    (11, 13), # left_hip -> left_knee
-    (13, 15), # left_knee -> left_ankle
+    (11, 13),  # left_hip -> left_knee
+    (13, 15),  # left_knee -> left_ankle
     # 右腿
-    (12, 14), # right_hip -> right_knee
-    (14, 16), # right_knee -> right_ankle
+    (12, 14),  # right_hip -> right_knee
+    (14, 16),  # right_knee -> right_ankle
 ]
 
 

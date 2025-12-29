@@ -1,4 +1,5 @@
 """Skeleton data structure for YOLOv8 Pose keypoints."""
+
 from dataclasses import dataclass
 from enum import IntEnum
 
@@ -7,6 +8,7 @@ import numpy as np
 
 class Keypoint(IntEnum):
     """17 keypoints from COCO pose format."""
+
     NOSE = 0
     LEFT_EYE = 1
     RIGHT_EYE = 2
@@ -89,16 +91,16 @@ class Skeleton:
     @property
     def torso_angle(self) -> float:
         """Calculate torso angle from vertical (degrees).
-        
+
         0° = standing upright
         90° = lying horizontal
         """
         sc = self.shoulder_center
         hc = self.hip_center
-        
+
         dx = sc[0] - hc[0]
         dy = sc[1] - hc[1]
-        
+
         # Calculate angle from vertical (y-axis pointing down in image coords)
         angle_rad = np.arctan2(abs(dx), abs(dy))
         return np.degrees(angle_rad)
@@ -106,17 +108,17 @@ class Skeleton:
     @property
     def hip_height_ratio(self) -> float:
         """Ratio of hip height to total body height.
-        
+
         Standing: hip is around 0.5 of total height
         Fallen: hip is very low (close to ankle level)
         """
         hip_y = self.hip_center[1]
         nose_y = self.nose[1]
         ankle_y = (self.left_ankle[1] + self.right_ankle[1]) / 2
-        
+
         total_height = ankle_y - nose_y
         if abs(total_height) < 1:
             return 0.5
-        
+
         hip_from_top = hip_y - nose_y
         return hip_from_top / total_height

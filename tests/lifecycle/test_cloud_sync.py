@@ -563,9 +563,7 @@ class TestBatchOperations:
 
     @patch("src.lifecycle.cloud_sync.storage.Client")
     @patch("builtins.print")
-    def test_retry_failed_dry_run(
-        self, mock_print, mock_client_class, temp_db, temp_skeleton_dir
-    ):
+    def test_retry_failed_dry_run(self, mock_print, mock_client_class, temp_db, temp_skeleton_dir):
         """Test retry in dry_run mode doesn't actually upload"""
         # Setup mock GCS client
         mock_client = Mock()

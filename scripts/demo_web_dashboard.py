@@ -122,7 +122,6 @@ def test_pages(base_url: str = "http://localhost:8000"):
         try:
             response = requests.get(url, timeout=5)
             if response.status_code == 200:
-                content_type = response.headers.get("content-type", "")
                 size = len(response.content)
                 print(f"✓ {name}")
                 print(f"    URL: {url}")

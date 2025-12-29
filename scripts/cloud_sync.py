@@ -24,35 +24,21 @@ def main():
         description="Cloud Sync - Upload skeleton JSON to GCP Cloud Storage"
     )
     parser.add_argument(
-        "--upload-pending",
-        action="store_true",
-        help="Upload all pending skeletons"
+        "--upload-pending", action="store_true", help="Upload all pending skeletons"
     )
+    parser.add_argument("--retry-failed", action="store_true", help="Retry all failed uploads")
     parser.add_argument(
-        "--retry-failed",
-        action="store_true",
-        help="Retry all failed uploads"
+        "--event-id", type=str, help="Upload specific event by ID (e.g., evt_1735459200)"
     )
+    parser.add_argument("--status", action="store_true", help="Show upload status summary")
     parser.add_argument(
-        "--event-id",
-        type=str,
-        help="Upload specific event by ID (e.g., evt_1735459200)"
-    )
-    parser.add_argument(
-        "--status",
-        action="store_true",
-        help="Show upload status summary"
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Dry run mode (don't actually upload)"
+        "--dry-run", action="store_true", help="Dry run mode (don't actually upload)"
     )
     parser.add_argument(
         "--skeleton-dir",
         type=str,
         default="data/skeletons",
-        help="Skeleton JSON directory (default: data/skeletons)"
+        help="Skeleton JSON directory (default: data/skeletons)",
     )
 
     args = parser.parse_args()
@@ -68,7 +54,7 @@ def main():
     uploader = CloudStorageUploader(
         bucket_name=config.cloud_sync.gcs_bucket,
         retry_attempts=config.cloud_sync.retry_attempts,
-        retry_delay=config.cloud_sync.retry_delay_seconds
+        retry_delay=config.cloud_sync.retry_delay_seconds,
     )
 
     try:
@@ -136,9 +122,9 @@ def upload_event(uploader: CloudStorageUploader, event_id: str, skeleton_dir: st
     success = uploader.upload_skeleton(event_id, skeleton_path, dry_run=dry_run)
 
     if success:
-        print(f"✅ Uploaded successfully")
+        print("✅ Uploaded successfully")
     else:
-        print(f"❌ Upload failed")
+        print("❌ Upload failed")
         sys.exit(1)
 
 

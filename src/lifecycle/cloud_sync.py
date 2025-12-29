@@ -73,9 +73,7 @@ class CloudStorageUploader:
 
         return f"{year}/{month}/{day}/{event_id}.json"
 
-    def upload_skeleton(
-        self, event_id: str, local_path: str | Path, dry_run: bool = False
-    ) -> bool:
+    def upload_skeleton(self, event_id: str, local_path: str | Path, dry_run: bool = False) -> bool:
         """Upload skeleton JSON file to GCS with retry logic
 
         Args:
@@ -211,3 +209,8 @@ class CloudStorageUploader:
                 failed_count += 1
 
         return {"success": success_count, "failed": failed_count}
+
+    def close(self):
+        """Close EventLogger database connection"""
+        if self.event_logger:
+            self.event_logger.close()

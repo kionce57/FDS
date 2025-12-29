@@ -29,10 +29,7 @@ def test_full_cloud_sync_workflow():
 
         # Initialize uploader
         uploader = CloudStorageUploader(
-            bucket_name="test-bucket",
-            db_path=str(db_path),
-            retry_attempts=3,
-            retry_delay=0.1
+            bucket_name="test-bucket", db_path=str(db_path), retry_attempts=3, retry_delay=0.1
         )
 
         # Mock GCS
@@ -44,14 +41,13 @@ def test_full_cloud_sync_workflow():
             event_id="evt_1735459200",
             confirmed_at=1735459200.0,
             last_notified_at=1735459200.0,
-            notification_count=1
+            notification_count=1,
         )
         uploader.event_logger.on_fall_confirmed(event)
 
         # Verify status is pending
         cursor = uploader.event_logger.conn.execute(
-            "SELECT skeleton_upload_status FROM events WHERE event_id = ?",
-            ("evt_1735459200",)
+            "SELECT skeleton_upload_status FROM events WHERE event_id = ?", ("evt_1735459200",)
         )
         assert cursor.fetchone()[0] == "pending"
 
@@ -64,7 +60,7 @@ def test_full_cloud_sync_workflow():
         # Verify status changed to uploaded
         cursor = uploader.event_logger.conn.execute(
             "SELECT skeleton_upload_status, skeleton_cloud_path FROM events WHERE event_id = ?",
-            ("evt_1735459200",)
+            ("evt_1735459200",),
         )
         status, cloud_path = cursor.fetchone()
         assert status == "uploaded"
@@ -91,10 +87,7 @@ def test_network_failure_recovery_workflow():
         skeleton_file.write_text('{"test": "data"}')
 
         uploader = CloudStorageUploader(
-            bucket_name="test-bucket",
-            db_path=str(db_path),
-            retry_attempts=2,
-            retry_delay=0.1
+            bucket_name="test-bucket", db_path=str(db_path), retry_attempts=2, retry_delay=0.1
         )
 
         # Create event
@@ -102,16 +95,17 @@ def test_network_failure_recovery_workflow():
             event_id=event_id,
             confirmed_at=1735460000.0,
             last_notified_at=1735460000.0,
-            notification_count=1
+            notification_count=1,
         )
         uploader.event_logger.on_fall_confirmed(event)
 
         # Mock GCS to fail first, then succeed
         mock_blob = Mock()
         from google.cloud.exceptions import GoogleCloudError
+
         mock_blob.upload_from_filename.side_effect = [
             GoogleCloudError("Network timeout"),  # First attempt fails
-            None  # Second attempt succeeds
+            None,  # Second attempt succeeds
         ]
         uploader.bucket.blob = Mock(return_value=mock_blob)
 
@@ -123,8 +117,7 @@ def test_network_failure_recovery_workflow():
 
         # Verify final status is uploaded
         cursor = uploader.event_logger.conn.execute(
-            "SELECT skeleton_upload_status FROM events WHERE event_id = ?",
-            (event_id,)
+            "SELECT skeleton_upload_status FROM events WHERE event_id = ?", (event_id,)
         )
         assert cursor.fetchone()[0] == "uploaded"
 

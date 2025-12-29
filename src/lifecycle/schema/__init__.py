@@ -17,6 +17,7 @@ class Keypoint:
 
     座標使用正規化格式 [0, 1]，相對於影像寬高
     """
+
     x: float  # 正規化 x 座標 [0, 1]
     y: float  # 正規化 y 座標 [0, 1]
     confidence: float  # 置信度 [0, 1]
@@ -28,6 +29,7 @@ class BBox:
 
     使用絕對像素座標
     """
+
     x: int
     y: int
     width: int
@@ -40,6 +42,7 @@ class DerivedFeatures:
 
     從骨架計算得出的額外特徵
     """
+
     torso_angle: float  # 軀幹角度（度）
     aspect_ratio: float  # 長寬比
     center_of_mass: tuple[float, float]  # 質心座標 (x, y)
@@ -48,6 +51,7 @@ class DerivedFeatures:
 @dataclass
 class SkeletonFrame:
     """單幀骨架資料"""
+
     frame_idx: int
     timestamp: float
     keypoints: dict[str, Keypoint]
@@ -58,6 +62,7 @@ class SkeletonFrame:
 @dataclass
 class ExtractorMetadata:
     """提取器元資料"""
+
     engine: Literal["yolov8", "mediapipe"]
     model: str
     version: str
@@ -66,6 +71,7 @@ class ExtractorMetadata:
 @dataclass
 class SkeletonMetadata:
     """骨架序列元資料"""
+
     event_id: str
     timestamp: str  # ISO 8601 格式
     source_video: str
@@ -78,6 +84,7 @@ class SkeletonMetadata:
 @dataclass
 class SkeletonAnalysis:
     """跌倒分析結果"""
+
     fall_detected: bool
     fall_frame_idx: int | None = None
     fall_timestamp: float | None = None
@@ -92,6 +99,7 @@ class SkeletonSequence:
     這是頂層資料結構，包含完整的骨架序列資訊。
     可以序列化為 JSON 或轉換為 Parquet。
     """
+
     metadata: SkeletonMetadata
     keypoint_format: Literal["coco17", "mediapipe33"]
     sequence: list[SkeletonFrame]
@@ -117,7 +125,7 @@ class SkeletonSequence:
                     "engine": self.metadata.extractor.engine,
                     "model": self.metadata.extractor.model,
                     "version": self.metadata.extractor.version,
-                }
+                },
             },
             "keypoint_format": self.keypoint_format,
             "sequence": [
@@ -132,16 +140,20 @@ class SkeletonSequence:
                         "x": frame.bbox.x,
                         "y": frame.bbox.y,
                         "width": frame.bbox.width,
-                        "height": frame.bbox.height
-                    } if frame.bbox else None,
+                        "height": frame.bbox.height,
+                    }
+                    if frame.bbox
+                    else None,
                     "derived_features": {
                         "torso_angle": frame.derived_features.torso_angle,
                         "aspect_ratio": frame.derived_features.aspect_ratio,
                         "center_of_mass": {
                             "x": frame.derived_features.center_of_mass[0],
-                            "y": frame.derived_features.center_of_mass[1]
-                        }
-                    } if frame.derived_features else None
+                            "y": frame.derived_features.center_of_mass[1],
+                        },
+                    }
+                    if frame.derived_features
+                    else None,
                 }
                 for frame in self.sequence
             ],
@@ -150,8 +162,10 @@ class SkeletonSequence:
                 "fall_frame_idx": self.analysis.fall_frame_idx,
                 "fall_timestamp": self.analysis.fall_timestamp,
                 "recovery_frame_idx": self.analysis.recovery_frame_idx,
-                "rule_triggered": self.analysis.rule_triggered
-            } if self.analysis else None
+                "rule_triggered": self.analysis.rule_triggered,
+            }
+            if self.analysis
+            else None,
         }
 
         Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -173,7 +187,7 @@ class SkeletonSequence:
         extractor = ExtractorMetadata(
             engine=data["metadata"]["extractor"]["engine"],
             model=data["metadata"]["extractor"]["model"],
-            version=data["metadata"]["extractor"]["version"]
+            version=data["metadata"]["extractor"]["version"],
         )
 
         metadata = SkeletonMetadata(
@@ -183,18 +197,14 @@ class SkeletonSequence:
             duration_sec=data["metadata"]["duration_sec"],
             fps=data["metadata"]["fps"],
             total_frames=data["metadata"]["total_frames"],
-            extractor=extractor
+            extractor=extractor,
         )
 
         # 解析 sequence
         sequence = []
         for frame_data in data["sequence"]:
             keypoints = {
-                name: Keypoint(
-                    x=kp["x"],
-                    y=kp["y"],
-                    confidence=kp["confidence"]
-                )
+                name: Keypoint(x=kp["x"], y=kp["y"], confidence=kp["confidence"])
                 for name, kp in frame_data["keypoints"].items()
             }
 
@@ -204,7 +214,7 @@ class SkeletonSequence:
                     x=frame_data["bbox"]["x"],
                     y=frame_data["bbox"]["y"],
                     width=frame_data["bbox"]["width"],
-                    height=frame_data["bbox"]["height"]
+                    height=frame_data["bbox"]["height"],
                 )
 
             derived_features = None
@@ -213,10 +223,7 @@ class SkeletonSequence:
                 derived_features = DerivedFeatures(
                     torso_angle=df["torso_angle"],
                     aspect_ratio=df["aspect_ratio"],
-                    center_of_mass=(
-                        df["center_of_mass"]["x"],
-                        df["center_of_mass"]["y"]
-                    )
+                    center_of_mass=(df["center_of_mass"]["x"], df["center_of_mass"]["y"]),
                 )
 
             frame = SkeletonFrame(
@@ -224,7 +231,7 @@ class SkeletonSequence:
                 timestamp=frame_data["timestamp"],
                 keypoints=keypoints,
                 bbox=bbox,
-                derived_features=derived_features
+                derived_features=derived_features,
             )
             sequence.append(frame)
 
@@ -236,7 +243,7 @@ class SkeletonSequence:
                 fall_frame_idx=data["analysis"].get("fall_frame_idx"),
                 fall_timestamp=data["analysis"].get("fall_timestamp"),
                 recovery_frame_idx=data["analysis"].get("recovery_frame_idx"),
-                rule_triggered=data["analysis"].get("rule_triggered")
+                rule_triggered=data["analysis"].get("rule_triggered"),
             )
 
         return cls(
@@ -244,7 +251,7 @@ class SkeletonSequence:
             metadata=metadata,
             keypoint_format=data["keypoint_format"],
             sequence=sequence,
-            analysis=analysis
+            analysis=analysis,
         )
 
 

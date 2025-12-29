@@ -1,6 +1,5 @@
 import json
 import pytest
-from pathlib import Path
 from src.lifecycle.schema import (
     Keypoint,
     BBox,
@@ -38,11 +37,7 @@ class TestBBox:
 
 class TestDerivedFeatures:
     def test_create_derived_features(self):
-        features = DerivedFeatures(
-            torso_angle=12.5,
-            aspect_ratio=1.75,
-            center_of_mass=(0.50, 0.48)
-        )
+        features = DerivedFeatures(torso_angle=12.5, aspect_ratio=1.75, center_of_mass=(0.50, 0.48))
         assert features.torso_angle == 12.5
         assert features.aspect_ratio == 1.75
         assert features.center_of_mass == (0.50, 0.48)
@@ -58,11 +53,7 @@ class TestSkeletonFrame:
         }
 
     def test_create_skeleton_frame(self, sample_keypoints):
-        frame = SkeletonFrame(
-            frame_idx=0,
-            timestamp=0.0,
-            keypoints=sample_keypoints
-        )
+        frame = SkeletonFrame(frame_idx=0, timestamp=0.0, keypoints=sample_keypoints)
         assert frame.frame_idx == 0
         assert frame.timestamp == 0.0
         assert len(frame.keypoints) == 3
@@ -70,57 +61,33 @@ class TestSkeletonFrame:
 
     def test_skeleton_frame_with_bbox(self, sample_keypoints):
         bbox = BBox(x=120, y=80, width=200, height=350)
-        frame = SkeletonFrame(
-            frame_idx=0,
-            timestamp=0.0,
-            keypoints=sample_keypoints,
-            bbox=bbox
-        )
+        frame = SkeletonFrame(frame_idx=0, timestamp=0.0, keypoints=sample_keypoints, bbox=bbox)
         assert frame.bbox.width == 200
         assert frame.bbox.height == 350
 
     def test_skeleton_frame_with_derived_features(self, sample_keypoints):
-        features = DerivedFeatures(
-            torso_angle=12.5,
-            aspect_ratio=1.75,
-            center_of_mass=(0.50, 0.48)
-        )
+        features = DerivedFeatures(torso_angle=12.5, aspect_ratio=1.75, center_of_mass=(0.50, 0.48))
         frame = SkeletonFrame(
-            frame_idx=0,
-            timestamp=0.0,
-            keypoints=sample_keypoints,
-            derived_features=features
+            frame_idx=0, timestamp=0.0, keypoints=sample_keypoints, derived_features=features
         )
         assert frame.derived_features.torso_angle == 12.5
 
 
 class TestExtractorMetadata:
     def test_create_extractor_metadata_yolo(self):
-        meta = ExtractorMetadata(
-            engine="yolov8",
-            model="yolov8n-pose.pt",
-            version="8.0.0"
-        )
+        meta = ExtractorMetadata(engine="yolov8", model="yolov8n-pose.pt", version="8.0.0")
         assert meta.engine == "yolov8"
         assert meta.model == "yolov8n-pose.pt"
 
     def test_create_extractor_metadata_mediapipe(self):
-        meta = ExtractorMetadata(
-            engine="mediapipe",
-            model="pose_landmarker_full",
-            version="0.10.0"
-        )
+        meta = ExtractorMetadata(engine="mediapipe", model="pose_landmarker_full", version="0.10.0")
         assert meta.engine == "mediapipe"
 
 
 class TestSkeletonMetadata:
     @pytest.fixture
     def extractor_meta(self):
-        return ExtractorMetadata(
-            engine="yolov8",
-            model="yolov8n-pose.pt",
-            version="8.0.0"
-        )
+        return ExtractorMetadata(engine="yolov8", model="yolov8n-pose.pt", version="8.0.0")
 
     def test_create_skeleton_metadata(self, extractor_meta):
         meta = SkeletonMetadata(
@@ -130,7 +97,7 @@ class TestSkeletonMetadata:
             duration_sec=10.0,
             fps=15,
             total_frames=150,
-            extractor=extractor_meta
+            extractor=extractor_meta,
         )
         assert meta.event_id == "evt_1735372800"
         assert meta.fps == 15
@@ -144,7 +111,7 @@ class TestSkeletonAnalysis:
             fall_frame_idx=45,
             fall_timestamp=3.0,
             recovery_frame_idx=105,
-            rule_triggered="aspect_ratio_change"
+            rule_triggered="aspect_ratio_change",
         )
         assert analysis.fall_detected is True
         assert analysis.fall_frame_idx == 45
@@ -166,11 +133,7 @@ class TestSkeletonSequence:
             duration_sec=1.0,
             fps=15,
             total_frames=15,
-            extractor=ExtractorMetadata(
-                engine="yolov8",
-                model="yolov8n-pose.pt",
-                version="8.0.0"
-            )
+            extractor=ExtractorMetadata(engine="yolov8", model="yolov8n-pose.pt", version="8.0.0"),
         )
 
     @pytest.fixture
@@ -182,7 +145,7 @@ class TestSkeletonSequence:
                 keypoints={
                     "nose": Keypoint(x=0.52, y=0.15, confidence=0.95),
                     "left_shoulder": Keypoint(x=0.45, y=0.28, confidence=0.98),
-                }
+                },
             ),
             SkeletonFrame(
                 frame_idx=1,
@@ -190,15 +153,13 @@ class TestSkeletonSequence:
                 keypoints={
                     "nose": Keypoint(x=0.53, y=0.16, confidence=0.94),
                     "left_shoulder": Keypoint(x=0.46, y=0.29, confidence=0.97),
-                }
+                },
             ),
         ]
 
     def test_create_skeleton_sequence(self, sample_metadata, sample_frames):
         seq = SkeletonSequence(
-            metadata=sample_metadata,
-            keypoint_format="coco17",
-            sequence=sample_frames
+            metadata=sample_metadata, keypoint_format="coco17", sequence=sample_frames
         )
         assert seq.version == "1.0"
         assert seq.metadata.event_id == "evt_123"
@@ -206,16 +167,12 @@ class TestSkeletonSequence:
         assert len(seq.sequence) == 2
 
     def test_skeleton_sequence_with_analysis(self, sample_metadata, sample_frames):
-        analysis = SkeletonAnalysis(
-            fall_detected=True,
-            fall_frame_idx=1,
-            fall_timestamp=0.067
-        )
+        analysis = SkeletonAnalysis(fall_detected=True, fall_frame_idx=1, fall_timestamp=0.067)
         seq = SkeletonSequence(
             metadata=sample_metadata,
             keypoint_format="coco17",
             sequence=sample_frames,
-            analysis=analysis
+            analysis=analysis,
         )
         assert seq.analysis.fall_detected is True
         assert seq.analysis.fall_frame_idx == 1
@@ -223,9 +180,7 @@ class TestSkeletonSequence:
     def test_to_json(self, sample_metadata, sample_frames, tmp_path):
         """測試序列化為 JSON"""
         seq = SkeletonSequence(
-            metadata=sample_metadata,
-            keypoint_format="coco17",
-            sequence=sample_frames
+            metadata=sample_metadata, keypoint_format="coco17", sequence=sample_frames
         )
 
         output_path = tmp_path / "test_skeleton.json"
@@ -252,18 +207,12 @@ class TestSkeletonSequence:
                 keypoints={"nose": Keypoint(x=0.5, y=0.3, confidence=0.9)},
                 bbox=BBox(x=100, y=50, width=200, height=300),
                 derived_features=DerivedFeatures(
-                    torso_angle=15.0,
-                    aspect_ratio=1.5,
-                    center_of_mass=(0.5, 0.5)
-                )
+                    torso_angle=15.0, aspect_ratio=1.5, center_of_mass=(0.5, 0.5)
+                ),
             )
         ]
 
-        seq = SkeletonSequence(
-            metadata=sample_metadata,
-            keypoint_format="coco17",
-            sequence=frames
-        )
+        seq = SkeletonSequence(metadata=sample_metadata, keypoint_format="coco17", sequence=frames)
 
         output_path = tmp_path / "test_full.json"
         seq.to_json(output_path)
@@ -279,14 +228,14 @@ class TestSkeletonSequence:
             fall_detected=True,
             fall_frame_idx=1,
             fall_timestamp=0.067,
-            rule_triggered="aspect_ratio_change"
+            rule_triggered="aspect_ratio_change",
         )
 
         seq = SkeletonSequence(
             metadata=sample_metadata,
             keypoint_format="coco17",
             sequence=sample_frames,
-            analysis=analysis
+            analysis=analysis,
         )
 
         output_path = tmp_path / "test_analysis.json"

@@ -6,11 +6,10 @@ JSON Schema 驗證器
 
 import json
 from pathlib import Path
-from typing import Any
 
 try:
-    import jsonschema
-    from jsonschema import Draft7Validator, validators
+    from jsonschema import Draft7Validator
+
     JSONSCHEMA_AVAILABLE = True
 except ImportError:
     JSONSCHEMA_AVAILABLE = False
@@ -18,6 +17,7 @@ except ImportError:
 
 class ValidationError(Exception):
     """驗證錯誤"""
+
     pass
 
 
@@ -46,8 +46,7 @@ class SkeletonValidator:
         """
         if not JSONSCHEMA_AVAILABLE:
             raise ImportError(
-                "jsonschema package is required for validation. "
-                "Install it with: uv add jsonschema"
+                "jsonschema package is required for validation. Install it with: uv add jsonschema"
             )
 
         if schema_path is None:
@@ -60,7 +59,7 @@ class SkeletonValidator:
         if not self.schema_path.exists():
             raise FileNotFoundError(f"Schema file not found: {self.schema_path}")
 
-        self.schema = json.loads(self.schema_path.read_text(encoding='utf-8'))
+        self.schema = json.loads(self.schema_path.read_text(encoding="utf-8"))
         self.validator = Draft7Validator(self.schema)
 
     def validate(self, data: dict) -> bool:
@@ -83,9 +82,7 @@ class SkeletonValidator:
                 path = ".".join(str(p) for p in error.path) if error.path else "root"
                 error_messages.append(f"  - {path}: {error.message}")
 
-            raise ValidationError(
-                f"JSON Schema validation failed:\n" + "\n".join(error_messages)
-            )
+            raise ValidationError("JSON Schema validation failed:\n" + "\n".join(error_messages))
 
         # 語義驗證
         self._validate_semantics(data)
@@ -117,16 +114,14 @@ class SkeletonValidator:
         # 2. 檢查 sequence 順序性（frame_idx 應該遞增）
         frame_indices = [frame["frame_idx"] for frame in data["sequence"]]
         if frame_indices != sorted(frame_indices):
-            raise ValidationError(
-                f"Frame indices are not in ascending order: {frame_indices}"
-            )
+            raise ValidationError(f"Frame indices are not in ascending order: {frame_indices}")
 
         # 3. 檢查 timestamp 單調性
         timestamps = [frame["timestamp"] for frame in data["sequence"]]
         for i in range(1, len(timestamps)):
             if timestamps[i] < timestamps[i - 1]:
                 raise ValidationError(
-                    f"Timestamps are not monotonic: frame {i-1} has {timestamps[i-1]}, "
+                    f"Timestamps are not monotonic: frame {i - 1} has {timestamps[i - 1]}, "
                     f"frame {i} has {timestamps[i]}"
                 )
 
@@ -170,7 +165,7 @@ class SkeletonValidator:
             raise FileNotFoundError(f"File not found: {file_path}")
 
         try:
-            data = json.loads(file_path.read_text(encoding='utf-8'))
+            data = json.loads(file_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as e:
             raise ValidationError(f"Invalid JSON: {e}")
 

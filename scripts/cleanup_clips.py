@@ -69,13 +69,13 @@ def main():
         retention_days=retention_days,
     )
 
-    print(f"影片清理排程器")
-    print(f"=" * 50)
+    print("影片清理排程器")
+    print("=" * 50)
     print(f"資料庫路徑: {args.db_path}")
     print(f"影片目錄: {args.clips_dir}")
     print(f"保留天數: {retention_days} 天")
     print(f"模式: {'乾運行（不刪除）' if args.dry_run else '正式刪除'}")
-    print(f"=" * 50)
+    print("=" * 50)
 
     # 查詢過期影片
     expired = cleanup.get_expired_clips()
@@ -98,7 +98,7 @@ def main():
     result = cleanup.cleanup(dry_run=args.dry_run)
 
     # 顯示結果
-    print(f"\n清理結果:")
+    print("\n清理結果:")
     print(f"  執行時間: {result['duration_sec']:.2f} 秒")
 
     if args.dry_run:
@@ -108,7 +108,7 @@ def main():
         print(f"  已刪除: {result['deleted_count']} 個檔案")
         print(f"  釋放空間: {format_bytes(result['freed_bytes'])}")
         print(f"  跳過（缺失）: {result['skipped_count']} 個檔案")
-        print(f"\n✓ 清理完成")
+        print("\n✓ 清理完成")
 
 
 if __name__ == "__main__":
