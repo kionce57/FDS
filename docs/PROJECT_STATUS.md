@@ -1,7 +1,7 @@
 # FDS 專案狀態文檔
 
 > 最後更新：2025-12-29
-> 更新者：Gemini 2.5 Pro (Antigravity)
+> 更新者：Claude Sonnet 4.5 (Cloud Sync Implementation Complete)
 
 本文檔提供完整的專案狀態，供後續開發者快速了解並繼續開發。
 
@@ -11,7 +11,7 @@
 
 **專案名稱：** FDS (Fall Detection System) - 居家長照跌倒偵測系統
 
-**當前階段：** Phase 2 - Data Lifecycle Management (進行中)
+**當前階段：** Phase 2 - Data Lifecycle Management (✅ 已完成)
 
 **技術棧：**
 - Python 3.12+
@@ -73,7 +73,7 @@ src/
     └── pipeline.py
 ```
 
-### Phase 2: Data Lifecycle Management (進行中)
+### Phase 2: Data Lifecycle Management (✅ 已完成)
 
 **最近 Commits（2025-12-28 ~ 2025-12-29）:**
 1. `d55247a` - feat: add skeleton extractor with coordinate normalization
@@ -82,7 +82,15 @@ src/
 4. `cec958b` - docs: add Windows testing guide and quick test scripts
 5. `ff3fcc6` - fix: validator test (too_many_keypoints_for_coco17)
 6. `d426633` - feat: automated cleanup scheduling with APScheduler
-7. `(pending)` - feat: Web Dashboard with FastAPI
+7. `806b988` - feat(db): add cloud sync columns to events table
+8. `4db1d2a` - feat(config): add CloudSyncConfig dataclass
+9. `c967045` - feat(cloud-sync): implement CloudStorageUploader core logic
+10. `d47dbe3` - feat(cloud-sync): add batch upload and retry methods
+11. `c26ef04` - feat(cli): add fds-cloud-sync CLI tool
+12. `bab6c52` - test(cloud-sync): add integration tests
+13. `b6b52df` - docs: add Cloud Sync commands to CLAUDE.md
+14. `30a03da` - chore: final cleanup and formatting
+15. `b93cd4f` - chore: add implementation plan and update gitignore
 
 **已完成的 Phase 2 功能：**
 
@@ -237,36 +245,91 @@ src/
 - **依賴：** fastapi, uvicorn, jinja2, httpx
 - **測試結果：** 所有 API 和頁面返回 HTTP 200
 
+#### Task 18: Cloud Sync ✅
+- **日期：** 2025-12-29
+- **狀態：** ✅ 已完成
+- **Commits (9 個):**
+  1. `806b988` - feat(db): add cloud sync columns to events table
+  2. `4db1d2a` - feat(config): add CloudSyncConfig dataclass
+  3. `c967045` - feat(cloud-sync): implement CloudStorageUploader core logic
+  4. `d47dbe3` - feat(cloud-sync): add batch upload and retry methods
+  5. `c26ef04` - feat(cli): add fds-cloud-sync CLI tool
+  6. `bab6c52` - test(cloud-sync): add integration tests
+  7. `b6b52df` - docs: add Cloud Sync commands to CLAUDE.md
+  8. `30a03da` - chore: final cleanup and formatting
+  9. `b93cd4f` - chore: add implementation plan and update gitignore
+
+- **檔案結構:**
+  ```
+  src/lifecycle/
+  ├── cloud_sync.py           # CloudStorageUploader (217 行)
+  scripts/
+  └── cloud_sync.py           # CLI 工具 (147 行)
+  tests/
+  ├── lifecycle/test_cloud_sync.py        # 單元測試 (12 個)
+  └── integration/test_cloud_sync_integration.py  # 整合測試 (2 個)
+  ```
+
+- **核心功能:**
+  - ✅ 上傳骨架 JSON 至 GCP Cloud Storage
+  - ✅ 自動重試機制（可配置次數與延遲）
+  - ✅ 批次上傳 (`upload_pending()`)
+  - ✅ 失敗重試 (`retry_failed()`)
+  - ✅ 狀態追蹤（pending/uploaded/failed）
+  - ✅ Dry-run 模式
+  - ✅ 資料庫整合（3 個新欄位）
+
+- **CLI 指令:**
+  ```bash
+  fds-cloud-sync --status              # 查看狀態
+  fds-cloud-sync --upload-pending      # 上傳待處理
+  fds-cloud-sync --retry-failed        # 重試失敗
+  fds-cloud-sync --event-id evt_123    # 上傳特定事件
+  fds-cloud-sync --dry-run             # 乾運行模式
+  ```
+
+- **認證方式:** Application Default Credentials (ADC)
+- **儲存路徑:** `YYYY/MM/DD/evt_{timestamp}.json`
+- **測試結果:** 194 個測試全部通過
+- **設計文檔:** `docs/plans/2025-12-29-cloud-sync-design.md`
+- **實作計畫:** `docs/plans/2025-12-29-cloud-sync-implementation.md`
+
 ---
 
 ## 🔄 待辦事項（按優先級）
 
-### Phase 2 剩餘任務
+### Phase 2 - 所有任務已完成 ✅
 
-#### Task 18: Cloud Sync (可選，優先級：低)
-- **狀態：** 未開始
-- **說明：** 骨架 JSON 同步至雲端儲存
-- **預計檔案：**
-  - `src/lifecycle/cloud_sync.py`
-  - `tests/lifecycle/test_cloud_sync.py`
-- **技術選項：**
-  - AWS S3 / Google Cloud Storage / Azure Blob
-  - 僅上傳骨架 JSON（隱私保護）
-  - 可選壓縮（gzip）
+**Phase 2 目標已全數達成：**
+- ✅ Schema Infrastructure
+- ✅ JSON Schema Validator
+- ✅ Skeleton Extractor
+- ✅ Cleanup Scheduler
+- ✅ Automated Cleanup Scheduling
+- ✅ Docker Containerization
+- ✅ Testing Documentation
+- ✅ Web Dashboard
+- ✅ Cloud Sync
+
+### Phase 3 候選功能（規劃中）
 
 #### ~~自動化排程（已完成）~~
 - **狀態：** ✅ 已於 2025-12-28 完成
 - **實作：** APScheduler BackgroundScheduler 整合至 `main.py`
 - **相關檔案：** `src/lifecycle/cleanup_scheduler.py`
 
+#### ~~Web 儀表板（已完成）~~
+- **狀態：** ✅ 已於 2025-12-29 完成
+- **說明：** FastAPI + Jinja2，詳見 Task 19
+
+#### ~~Cloud Sync（已完成）~~
+- **狀態：** ✅ 已於 2025-12-29 完成
+- **說明：** GCP Cloud Storage 整合，詳見 Task 18
+
 #### 骨架特徵擴充（優先級：低）
 - MediaPipe33 格式支援（目前僅 COCO17）
 - 速度/加速度特徵計算
 - 軌跡分析
-
-#### ~~Web 儀表板（已完成）~~
-- **狀態：** ✅ 已於 2025-12-29 完成
-- **說明：** FastAPI + Jinja2，詳見 Task 19
 
 ---
 
@@ -343,20 +406,23 @@ src/
 ### Lifecycle 模組測試
 - `test_schema.py` - 14 tests ✅
 - `test_formats.py` - 14 tests ✅
-- `test_validator.py` - 28 tests (27 ✅, 1 ⚠️)
+- `test_validator.py` - 28 tests ✅
 - `test_skeleton_extractor.py` - 6 tests ✅
 - `test_clip_cleanup.py` - 10 tests ✅
+- `test_cleanup_scheduler.py` - 9 tests ✅
+- `test_cloud_sync.py` - 12 tests ✅
 
-**總計：** 72 tests, 71 passed, 1 known issue
+**總計：** 93 tests, 93 passed ✅
 
 ### 整合測試
 - 真實影片骨架提取 ✅
 - 真實清理場景驗證 ✅
 - Docker 配置驗證 ✅
+- Cloud Sync 端到端流程測試 ✅ (`test_cloud_sync_integration.py` - 2 tests)
 
 ### 未測試項目
-- Cloud Sync（未實作）
 - 真實 Docker 容器執行（需實際攝影機）
+- 真實 GCP Cloud Storage 上傳（目前測試使用 mock）
 
 ---
 
@@ -396,8 +462,10 @@ bash scripts/quick_test.sh
 ### config/settings.yaml
 ```yaml
 lifecycle:
-  clip_retention_days: 7      # 影片保留天數
+  clip_retention_days: 7       # 影片保留天數
   skeleton_retention_days: 30  # 骨架 JSON 保留天數（未使用）
+  cleanup_enabled: true        # 啟用自動清理排程
+  cleanup_schedule_hours: 24   # 清理排程間隔（小時）
 
 camera:
   source: 0                    # 攝影機索引或 RTSP URL
@@ -409,11 +477,18 @@ detection:
 
 analysis:
   fall_threshold: 1.3          # 長寬比閾值
-  delay_sec: 3.0              # 延遲確認秒數
+  delay_sec: 3.0               # 延遲確認秒數
 
 notification:
   line_token: "${LINE_NOTIFY_TOKEN}"  # 從 .env 讀取
   enabled: true
+
+cloud_sync:
+  enabled: true                # 啟用 Cloud Sync
+  gcs_bucket: "${GCS_BUCKET_NAME}"  # GCS bucket 名稱
+  upload_on_extract: false     # 提取後自動上傳
+  retry_attempts: 3            # 重試次數
+  retry_delay_seconds: 5       # 重試延遲（秒）
 ```
 
 ### pyproject.toml - CLI 入口點
@@ -422,6 +497,8 @@ notification:
 fds = "main:main"
 fds-test-video = "scripts.test_with_video:main"
 fds-cleanup = "scripts.cleanup_clips:main"
+fds-web = "src.web.app:main"
+fds-cloud-sync = "scripts.cloud_sync:main"
 ```
 
 ---
@@ -430,18 +507,16 @@ fds-cleanup = "scripts.cleanup_clips:main"
 
 ### 立即可執行的任務
 
-1. **修復 Validator 測試**（10 分鐘）
-   - 修改 `test_too_many_keypoints_for_coco17` 測試用例
-   - 使用標準 keypoint 名稱但超過 17 個
-
-2. **實作自動化清理排程**（30 分鐘）
-   - 選項 A：整合 APScheduler 至 main.py
-   - 選項 B：提供 crontab 設定範例
-
-3. **Docker 實際測試**（需實體設備）
-   - 在樹莓派或 Linux 機器上建構鏡像
+1. **生產環境部署測試**（需實體設備）
+   - 在 Linux 機器上建構 Docker 鏡像
    - 測試攝影機訪問
    - 驗證資源使用
+   - 測試 Cloud Sync 真實上傳至 GCP
+
+2. **監控與告警**（1-2 天）
+   - 實作健康檢查端點
+   - 新增效能監控指標
+   - 設定告警通知（系統異常、偵測失敗等）
 
 ### 功能擴充建議
 
@@ -450,17 +525,17 @@ fds-cleanup = "scripts.cleanup_clips:main"
    - 加速度計算（速度變化率）
    - 軌跡平滑（Kalman Filter）
 
-2. **Cloud Sync 實作**（2-3 天）
-   - 選擇雲端儲存服務
-   - 實作上傳邏輯
-   - 失敗重試機制
-   - 上傳進度追蹤
-
-3. **監控儀表板**（3-5 天）
-   - Flask/FastAPI Web 介面
-   - 事件列表與查詢
+2. **Web Dashboard 增強**（2-3 天）
    - 骨架視覺化（Canvas/D3.js）
-   - 系統狀態監控
+   - 即時系統監控頁面
+   - 批次事件管理功能
+   - Cloud Sync 狀態查詢介面
+
+3. **機器學習模型整合**（5-7 天）
+   - 整合預訓練跌倒偵測模型
+   - 替換規則引擎為 ML 推論
+   - 建立訓練資料集管道
+   - 模型評估與監控
 
 ---
 
@@ -468,6 +543,8 @@ fds-cleanup = "scripts.cleanup_clips:main"
 
 - **設計文檔：** `docs/plans/2025-12-28-fall-detection-system-design.md`
 - **Phase 1 實作：** `docs/plans/2025-12-28-fds-phase1-implementation.md`
+- **Cloud Sync 設計：** `docs/plans/2025-12-29-cloud-sync-design.md`
+- **Cloud Sync 實作：** `docs/plans/2025-12-29-cloud-sync-implementation.md`
 - **專案說明：** `README.md`
 - **開發指南：** `CLAUDE.md`
 - **測試指南：** `docs/TESTING_ON_WINDOWS.md`
@@ -495,6 +572,12 @@ fds-cleanup = "scripts.cleanup_clips:main"
 - `Dockerfile` (鏡像建構)
 - `docker-compose.yml` (服務編排)
 - `.dockerignore` (建構排除)
+
+### 如果要修改 Cloud Sync
+- `src/lifecycle/cloud_sync.py` (核心上傳邏輯)
+- `scripts/cloud_sync.py` (CLI 介面)
+- `src/events/event_logger.py` (資料庫狀態追蹤)
+- `config/settings.yaml` (Cloud Sync 設定)
 
 ---
 
