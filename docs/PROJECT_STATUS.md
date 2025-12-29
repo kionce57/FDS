@@ -1,7 +1,7 @@
 # FDS 專案狀態文檔
 
-> 最後更新：2025-12-28
-> 更新者：Claude Sonnet 4.5
+> 最後更新：2025-12-29
+> 更新者：Gemini 2.5 Pro (Antigravity)
 
 本文檔提供完整的專案狀態，供後續開發者快速了解並繼續開發。
 
@@ -75,11 +75,14 @@ src/
 
 ### Phase 2: Data Lifecycle Management (進行中)
 
-**最近 Commits（本次 session）:**
+**最近 Commits（2025-12-28 ~ 2025-12-29）:**
 1. `d55247a` - feat: add skeleton extractor with coordinate normalization
 2. `40e737a` - feat: add clip cleanup scheduler with retention policy
 3. `2a01bf9` - feat: add Docker containerization for edge deployment
 4. `cec958b` - docs: add Windows testing guide and quick test scripts
+5. `ff3fcc6` - fix: validator test (too_many_keypoints_for_coco17)
+6. `d426633` - feat: automated cleanup scheduling with APScheduler
+7. `(pending)` - feat: Web Dashboard with FastAPI
 
 **已完成的 Phase 2 功能：**
 
@@ -191,6 +194,49 @@ src/
   - 常見問題排除
   - 測試檢查清單
 
+#### Task 19: Web Dashboard ✅
+- **日期：** 2025-12-29
+- **技術棧：** FastAPI + Jinja2 + RESTful API
+- **檔案結構：**
+  ```
+  src/web/
+  ├── __init__.py
+  ├── app.py              # FastAPI 應用程式
+  ├── routes/
+  │   ├── api.py          # RESTful API
+  │   └── pages.py        # 頁面路由
+  ├── services/
+  │   └── event_service.py  # 資料庫服務
+  ├── templates/          # Jinja2 模板
+  │   ├── base.html
+  │   ├── dashboard.html
+  │   ├── events.html
+  │   └── event_detail.html
+  └── static/
+      ├── css/style.css   # 深色主題
+      └── js/main.js
+  ```
+- **API 端點：**
+  - `GET /api/status` - 系統狀態
+  - `GET /api/stats` - 事件統計
+  - `GET /api/events` - 事件列表（分頁）
+  - `GET /api/events/{id}` - 事件詳情
+  - `GET /api/events/{id}/clip` - 影片串流
+  - `DELETE /api/events/{id}` - 刪除事件
+- **頁面：**
+  - `/` - 儀表板首頁
+  - `/events` - 事件列表
+  - `/events/{id}` - 事件詳情 + 影片播放
+  - `/docs` - Swagger API 文檔（自動生成）
+- **啟動方式：**
+  ```bash
+  uv run python scripts/run_web.py
+  # 或
+  uv run fds-web
+  ```
+- **依賴：** fastapi, uvicorn, jinja2, httpx
+- **測試結果：** 所有 API 和頁面返回 HTTP 200
+
 ---
 
 ## 🔄 待辦事項（按優先級）
@@ -208,24 +254,19 @@ src/
   - 僅上傳骨架 JSON（隱私保護）
   - 可選壓縮（gzip）
 
-### Phase 2+ 未來功能
-
-#### 自動化排程（優先級：中）
-- **需求：** 整合 Cleanup Scheduler 至主程式
-- **選項：**
-  1. 定時觸發（APScheduler）
-  2. Cron job（推薦）
-  3. Systemd timer
+#### ~~自動化排程（已完成）~~
+- **狀態：** ✅ 已於 2025-12-28 完成
+- **實作：** APScheduler BackgroundScheduler 整合至 `main.py`
+- **相關檔案：** `src/lifecycle/cleanup_scheduler.py`
 
 #### 骨架特徵擴充（優先級：低）
 - MediaPipe33 格式支援（目前僅 COCO17）
 - 速度/加速度特徵計算
 - 軌跡分析
 
-#### Web 儀表板（優先級：低）
-- 事件查詢介面
-- 骨架視覺化
-- 統計圖表
+#### ~~Web 儀表板（已完成）~~
+- **狀態：** ✅ 已於 2025-12-29 完成
+- **說明：** FastAPI + Jinja2，詳見 Task 19
 
 ---
 
