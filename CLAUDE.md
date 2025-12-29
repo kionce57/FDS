@@ -10,6 +10,8 @@ Fall Detection System (FDS) - 居家長照跌倒偵測系統。使用 YOLOv8 進
 
 ## Development Commands
 
+### 本地開發模式
+
 **依賴管理:**
 ```bash
 uv sync                    # 安裝/同步依賴
@@ -24,6 +26,13 @@ uv run python main.py      # 執行即時偵測（使用 camera.source）
 fds                        # 安裝後可用的 CLI 入口點
 ```
 
+**Web Dashboard:**
+```bash
+uv run python -m src.web.app              # 啟動 Web 儀表板
+fds-web                                   # 安裝後可用的 CLI 入口點
+# 啟動後訪問 http://localhost:8000
+```
+
 **影片測試:**
 ```bash
 # BBox 模式（長寬比規則）
@@ -35,6 +44,12 @@ uv run python -m scripts.test_with_video --use-pose <video_path>
 
 # 無視窗模式（CLI only）
 uv run python -m scripts.test_with_video --no-window <video_path>
+```
+
+**清理過期檔案:**
+```bash
+uv run python -m scripts.cleanup_clips    # 刪除過期影片/骨架檔案
+fds-cleanup                               # 安裝後可用的 CLI 入口點
 ```
 
 **測試:**
@@ -52,6 +67,36 @@ uv run ruff check .         # Lint 檢查
 uv run ruff check . --fix   # 自動修復
 uv run ruff format .        # 格式化
 ```
+
+### Docker 部署模式（推薦）
+
+**完整服務啟動:**
+```bash
+docker compose up -d                      # 啟動全部服務（fds + fds-web）
+docker compose up -d fds                  # 只啟動偵測服務
+docker compose up -d fds-web              # 只啟動 Web Dashboard
+docker compose logs -f fds                # 查看偵測服務日誌
+docker compose logs -f fds-web            # 查看 Web 服務日誌
+docker compose down                       # 停止全部服務
+docker compose restart fds                # 重啟偵測服務
+```
+
+**清理與維護:**
+```bash
+docker compose --profile cleanup run --rm fds-cleanup  # 手動執行清理
+docker compose build                                   # 重新建置映像（程式碼改動後）
+docker compose build --no-cache                        # 強制完整重建
+```
+
+**資料持久化位置:**
+- `./data/fds.db` - 事件資料庫
+- `./data/clips/` - 影片片段
+- `./data/skeletons/` - 骨架序列
+- `./logs/` - 應用程式日誌
+
+**切換攝影機來源:**
+1. 真實攝影機：取消 `docker-compose.yml` 中 `devices` 註解，並修改 `config/settings.yaml` 的 `camera.source` 為 `0`
+2. 測試影片：保持 `devices` 註解，修改 `camera.source` 為容器內路徑（例如：`/app/tests/fixtures/videos/fall-01-cam0.mp4`）
 
 ## Core Architecture
 
@@ -195,11 +240,36 @@ class FrameData:
 
 ```toml
 [project.scripts]
-fds = "main:main"
-fds-test-video = "scripts.test_with_video:main"
+fds = "main:main"                             # 主程式（即時偵測）
+fds-test-video = "scripts.test_with_video:main"  # 影片測試工具
+fds-cleanup = "scripts.cleanup_clips:main"      # 清理過期檔案
+fds-web = "src.web.app:main"                   # Web Dashboard
 ```
 
-安裝後可直接執行 `fds` 和 `fds-test-video` 指令。
+安裝後可直接執行這些 CLI 指令。
+
+## Web Dashboard Architecture (src/web/)
+
+FDS 提供 FastAPI 網頁儀表板，用於查詢歷史事件和影片播放。
+
+**核心元件:**
+- `src/web/app.py` - FastAPI 應用程式進入點
+- `src/web/routes/api.py` - RESTful API 路由（`/api/*`）
+- `src/web/routes/pages.py` - 頁面路由（Jinja2 模板）
+- `src/web/services/event_service.py` - 事件查詢服務（封裝資料庫存取）
+- `src/web/static/` - 靜態檔案（CSS, JS）
+- `src/web/templates/` - Jinja2 模板
+
+**API 端點:**
+- `GET /` - 首頁（事件列表）
+- `GET /api/events` - 查詢事件（支援分頁、篩選）
+- `GET /api/events/{event_id}` - 取得單一事件詳情
+- `GET /api/status` - 健康檢查
+
+**Docker 部署注意事項:**
+- Web Dashboard 使用獨立的輕量化 Image (`Dockerfile.web`)
+- 預設監聽 port 8000
+- 透過 volume 掛載共享 `data/` 目錄存取資料庫和影片
 
 
 ## Output
