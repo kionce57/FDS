@@ -23,4 +23,4 @@ data/
 .pytest_cache
 
 # Shell artifacts (from version specifiers like >=x.x.x)
-=*
+=*.coverage
