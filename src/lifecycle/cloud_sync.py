@@ -143,3 +143,71 @@ class CloudStorageUploader:
             error=error_msg,
         )
         return False
+
+    def upload_pending(
+        self, skeleton_dir: str | Path = "data/skeletons", dry_run: bool = False
+    ) -> dict:
+        """Upload all pending skeletons
+
+        Args:
+            skeleton_dir: Directory containing skeleton JSON files
+            dry_run: If True, don't actually upload
+
+        Returns:
+            Dict with success/failed counts: {"success": 2, "failed": 1}
+        """
+        skeleton_dir = Path(skeleton_dir)
+        pending = self.event_logger.get_pending_uploads()
+
+        success_count = 0
+        failed_count = 0
+
+        for event in pending:
+            event_id = event["event_id"]
+            local_path = skeleton_dir / f"{event_id}.json"
+
+            if not local_path.exists():
+                print(f"⚠️  Skeleton file not found: {local_path}")
+                failed_count += 1
+                continue
+
+            if self.upload_skeleton(event_id, local_path, dry_run=dry_run):
+                success_count += 1
+            else:
+                failed_count += 1
+
+        return {"success": success_count, "failed": failed_count}
+
+    def retry_failed(
+        self, skeleton_dir: str | Path = "data/skeletons", dry_run: bool = False
+    ) -> dict:
+        """Retry all failed uploads
+
+        Args:
+            skeleton_dir: Directory containing skeleton JSON files
+            dry_run: If True, don't actually upload
+
+        Returns:
+            Dict with success/failed counts
+        """
+        skeleton_dir = Path(skeleton_dir)
+        failed = self.event_logger.get_failed_uploads()
+
+        success_count = 0
+        failed_count = 0
+
+        for event in failed:
+            event_id = event["event_id"]
+            local_path = skeleton_dir / f"{event_id}.json"
+
+            if not local_path.exists():
+                print(f"⚠️  Skeleton file not found: {local_path}")
+                failed_count += 1
+                continue
+
+            if self.upload_skeleton(event_id, local_path, dry_run=dry_run):
+                success_count += 1
+            else:
+                failed_count += 1
+
+        return {"success": success_count, "failed": failed_count}

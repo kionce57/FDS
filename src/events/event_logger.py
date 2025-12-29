@@ -73,6 +73,36 @@ class EventLogger(FallEventObserver):
         )
         self.conn.commit()
 
+    def get_pending_uploads(self) -> list[dict]:
+        """Get all events with skeleton_upload_status='pending'
+
+        Returns:
+            List of event dicts with event_id, confirmed_at, etc.
+        """
+        cursor = self.conn.execute(
+            """SELECT event_id, confirmed_at, skeleton_upload_status
+            FROM events
+            WHERE skeleton_upload_status = 'pending'
+            ORDER BY confirmed_at ASC"""
+        )
+        columns = ["event_id", "confirmed_at", "skeleton_upload_status"]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+    def get_failed_uploads(self) -> list[dict]:
+        """Get all events with skeleton_upload_status='failed'
+
+        Returns:
+            List of event dicts with event_id, error message, etc.
+        """
+        cursor = self.conn.execute(
+            """SELECT event_id, confirmed_at, skeleton_upload_status, skeleton_upload_error
+            FROM events
+            WHERE skeleton_upload_status = 'failed'
+            ORDER BY confirmed_at ASC"""
+        )
+        columns = ["event_id", "confirmed_at", "skeleton_upload_status", "skeleton_upload_error"]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
     def get_recent_events(self, limit: int = 10) -> list[dict]:
         cursor = self.conn.execute(
             """

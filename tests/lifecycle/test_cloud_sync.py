@@ -310,3 +310,298 @@ class TestUploadSkeleton:
         row = cursor.fetchone()
         assert row[0] == "failed"
         assert "3 attempts" in row[1]
+
+
+class TestBatchOperations:
+    @pytest.fixture
+    def temp_db(self):
+        """Create temporary database"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.db"
+            yield str(db_path)
+
+    @pytest.fixture
+    def temp_skeleton_dir(self):
+        """Create temporary skeleton directory"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skeleton_dir = Path(tmpdir) / "skeletons"
+            skeleton_dir.mkdir()
+            yield skeleton_dir
+
+    @patch("src.lifecycle.cloud_sync.storage.Client")
+    def test_upload_pending_batch(self, mock_client_class, temp_db, temp_skeleton_dir):
+        """Test batch upload of all pending skeletons"""
+        # Setup mock GCS client
+        mock_client = Mock()
+        mock_bucket = Mock()
+        mock_blob = Mock()
+
+        mock_client_class.return_value = mock_client
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+
+        # Create uploader
+        uploader = CloudStorageUploader(
+            bucket_name="test-bucket",
+            db_path=temp_db,
+            retry_attempts=3,
+            retry_delay=1,
+        )
+
+        # Create test events with different statuses
+        uploader.event_logger.conn.execute(
+            """INSERT INTO events
+            (event_id, confirmed_at, skeleton_upload_status, created_at)
+            VALUES (?, ?, ?, ?)""",
+            ("evt_1735459200.000", 1735459200.0, "pending", 1735459200.0),
+        )
+        uploader.event_logger.conn.execute(
+            """INSERT INTO events
+            (event_id, confirmed_at, skeleton_upload_status, created_at)
+            VALUES (?, ?, ?, ?)""",
+            ("evt_1735459300.000", 1735459300.0, "uploaded", 1735459300.0),
+        )
+        uploader.event_logger.conn.execute(
+            """INSERT INTO events
+            (event_id, confirmed_at, skeleton_upload_status, created_at)
+            VALUES (?, ?, ?, ?)""",
+            ("evt_1735459400.000", 1735459400.0, "pending", 1735459400.0),
+        )
+        uploader.event_logger.conn.commit()
+
+        # Create skeleton files for pending events
+        (temp_skeleton_dir / "evt_1735459200.000.json").write_text('{"keypoints": []}')
+        (temp_skeleton_dir / "evt_1735459400.000.json").write_text('{"keypoints": []}')
+
+        # Upload pending skeletons
+        result = uploader.upload_pending(skeleton_dir=temp_skeleton_dir)
+
+        # Verify result
+        assert result["success"] == 2
+        assert result["failed"] == 0
+
+        # Verify both pending events were uploaded
+        assert mock_blob.upload_from_filename.call_count == 2
+
+        # Verify database was updated
+        cursor = uploader.event_logger.conn.execute(
+            "SELECT skeleton_upload_status FROM events WHERE event_id = ?",
+            ("evt_1735459200.000",),
+        )
+        assert cursor.fetchone()[0] == "uploaded"
+
+        cursor = uploader.event_logger.conn.execute(
+            "SELECT skeleton_upload_status FROM events WHERE event_id = ?",
+            ("evt_1735459400.000",),
+        )
+        assert cursor.fetchone()[0] == "uploaded"
+
+    @patch("src.lifecycle.cloud_sync.storage.Client")
+    @patch("builtins.print")
+    def test_upload_pending_with_missing_file(
+        self, mock_print, mock_client_class, temp_db, temp_skeleton_dir
+    ):
+        """Test batch upload handles missing skeleton files"""
+        # Setup mock GCS client
+        mock_client = Mock()
+        mock_bucket = Mock()
+        mock_blob = Mock()
+
+        mock_client_class.return_value = mock_client
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+
+        # Create uploader
+        uploader = CloudStorageUploader(
+            bucket_name="test-bucket",
+            db_path=temp_db,
+            retry_attempts=3,
+            retry_delay=1,
+        )
+
+        # Create test events
+        uploader.event_logger.conn.execute(
+            """INSERT INTO events
+            (event_id, confirmed_at, skeleton_upload_status, created_at)
+            VALUES (?, ?, ?, ?)""",
+            ("evt_1735459200.000", 1735459200.0, "pending", 1735459200.0),
+        )
+        uploader.event_logger.conn.execute(
+            """INSERT INTO events
+            (event_id, confirmed_at, skeleton_upload_status, created_at)
+            VALUES (?, ?, ?, ?)""",
+            ("evt_1735459300.000", 1735459300.0, "pending", 1735459300.0),
+        )
+        uploader.event_logger.conn.commit()
+
+        # Only create one skeleton file (missing the other)
+        (temp_skeleton_dir / "evt_1735459200.000.json").write_text('{"keypoints": []}')
+
+        # Upload pending skeletons
+        result = uploader.upload_pending(skeleton_dir=temp_skeleton_dir)
+
+        # Verify result
+        assert result["success"] == 1
+        assert result["failed"] == 1
+
+        # Verify warning was printed
+        mock_print.assert_called_once()
+        assert "Skeleton file not found" in mock_print.call_args[0][0]
+
+    @patch("src.lifecycle.cloud_sync.storage.Client")
+    @patch("builtins.print")
+    def test_upload_pending_dry_run(
+        self, mock_print, mock_client_class, temp_db, temp_skeleton_dir
+    ):
+        """Test batch upload in dry_run mode doesn't actually upload"""
+        # Setup mock GCS client
+        mock_client = Mock()
+        mock_bucket = Mock()
+        mock_blob = Mock()
+
+        mock_client_class.return_value = mock_client
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+
+        # Create uploader
+        uploader = CloudStorageUploader(
+            bucket_name="test-bucket",
+            db_path=temp_db,
+            retry_attempts=3,
+            retry_delay=1,
+        )
+
+        # Create test event
+        uploader.event_logger.conn.execute(
+            """INSERT INTO events
+            (event_id, confirmed_at, skeleton_upload_status, created_at)
+            VALUES (?, ?, ?, ?)""",
+            ("evt_1735459200.000", 1735459200.0, "pending", 1735459200.0),
+        )
+        uploader.event_logger.conn.commit()
+
+        # Create skeleton file
+        (temp_skeleton_dir / "evt_1735459200.000.json").write_text('{"keypoints": []}')
+
+        # Upload in dry_run mode
+        result = uploader.upload_pending(skeleton_dir=temp_skeleton_dir, dry_run=True)
+
+        # Verify result
+        assert result["success"] == 1
+        assert result["failed"] == 0
+
+        # Verify GCS methods were NOT called
+        mock_blob.upload_from_filename.assert_not_called()
+
+    @patch("src.lifecycle.cloud_sync.storage.Client")
+    def test_retry_failed(self, mock_client_class, temp_db, temp_skeleton_dir):
+        """Test retry of all failed uploads"""
+        # Setup mock GCS client
+        mock_client = Mock()
+        mock_bucket = Mock()
+        mock_blob = Mock()
+
+        mock_client_class.return_value = mock_client
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+
+        # Create uploader
+        uploader = CloudStorageUploader(
+            bucket_name="test-bucket",
+            db_path=temp_db,
+            retry_attempts=3,
+            retry_delay=1,
+        )
+
+        # Create test events with different statuses
+        uploader.event_logger.conn.execute(
+            """INSERT INTO events
+            (event_id, confirmed_at, skeleton_upload_status, skeleton_upload_error, created_at)
+            VALUES (?, ?, ?, ?, ?)""",
+            ("evt_1735459200.000", 1735459200.0, "failed", "Network error", 1735459200.0),
+        )
+        uploader.event_logger.conn.execute(
+            """INSERT INTO events
+            (event_id, confirmed_at, skeleton_upload_status, created_at)
+            VALUES (?, ?, ?, ?)""",
+            ("evt_1735459300.000", 1735459300.0, "uploaded", 1735459300.0),
+        )
+        uploader.event_logger.conn.execute(
+            """INSERT INTO events
+            (event_id, confirmed_at, skeleton_upload_status, skeleton_upload_error, created_at)
+            VALUES (?, ?, ?, ?, ?)""",
+            ("evt_1735459400.000", 1735459400.0, "failed", "File not found", 1735459400.0),
+        )
+        uploader.event_logger.conn.commit()
+
+        # Create skeleton files for failed events
+        (temp_skeleton_dir / "evt_1735459200.000.json").write_text('{"keypoints": []}')
+        (temp_skeleton_dir / "evt_1735459400.000.json").write_text('{"keypoints": []}')
+
+        # Retry failed uploads
+        result = uploader.retry_failed(skeleton_dir=temp_skeleton_dir)
+
+        # Verify result
+        assert result["success"] == 2
+        assert result["failed"] == 0
+
+        # Verify both failed events were retried
+        assert mock_blob.upload_from_filename.call_count == 2
+
+        # Verify database was updated
+        cursor = uploader.event_logger.conn.execute(
+            "SELECT skeleton_upload_status FROM events WHERE event_id = ?",
+            ("evt_1735459200.000",),
+        )
+        assert cursor.fetchone()[0] == "uploaded"
+
+        cursor = uploader.event_logger.conn.execute(
+            "SELECT skeleton_upload_status FROM events WHERE event_id = ?",
+            ("evt_1735459400.000",),
+        )
+        assert cursor.fetchone()[0] == "uploaded"
+
+    @patch("src.lifecycle.cloud_sync.storage.Client")
+    @patch("builtins.print")
+    def test_retry_failed_dry_run(
+        self, mock_print, mock_client_class, temp_db, temp_skeleton_dir
+    ):
+        """Test retry in dry_run mode doesn't actually upload"""
+        # Setup mock GCS client
+        mock_client = Mock()
+        mock_bucket = Mock()
+        mock_blob = Mock()
+
+        mock_client_class.return_value = mock_client
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+
+        # Create uploader
+        uploader = CloudStorageUploader(
+            bucket_name="test-bucket",
+            db_path=temp_db,
+            retry_attempts=3,
+            retry_delay=1,
+        )
+
+        # Create test event
+        uploader.event_logger.conn.execute(
+            """INSERT INTO events
+            (event_id, confirmed_at, skeleton_upload_status, skeleton_upload_error, created_at)
+            VALUES (?, ?, ?, ?, ?)""",
+            ("evt_1735459200.000", 1735459200.0, "failed", "Network error", 1735459200.0),
+        )
+        uploader.event_logger.conn.commit()
+
+        # Create skeleton file
+        (temp_skeleton_dir / "evt_1735459200.000.json").write_text('{"keypoints": []}')
+
+        # Retry in dry_run mode
+        result = uploader.retry_failed(skeleton_dir=temp_skeleton_dir, dry_run=True)
+
+        # Verify result
+        assert result["success"] == 1
+        assert result["failed"] == 0
+
+        # Verify GCS methods were NOT called
+        mock_blob.upload_from_filename.assert_not_called()
