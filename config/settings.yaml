@@ -1,4 +1,7 @@
 camera:
+  # [影像來源設定]
+  # - 真實攝像頭: 使用數字索引, 例如 0
+  # - 測試影片: 使用容器內絕對路徑, 例如 "/app/tests/fixtures/videos/fall-01-cam0.mp4"
   source: "/app/tests/fixtures/videos/fall-01-cam0.mp4"
   fps: 15
   resolution: [640, 480]

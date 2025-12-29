@@ -26,7 +26,18 @@ services:
     image: fds-app:latest
     container_name: fds-app
 
-    # 使用測試影片時請註解掉 devices
+    # [模式選擇] 攝像頭設置
+    # ---------------------------
+    # 1. 真實攝像頭模式:
+    #    - 取消下方 `devices` 的註解
+    #    - 確保主機上有 /dev/video0
+    #    - 修改 config/settings.yaml 的 camera.source 為 0
+    #
+    # 2. 測試影片模式 (目前):
+    #    - 保持 `devices` 註解
+    #    - 確保 `volumes` 有掛載 ./tests:/app/tests:ro
+    #    - 修改 config/settings.yaml 的 camera.source 為影片路徑
+    
     # devices:
     #   - /dev/video0:/dev/video0
 
