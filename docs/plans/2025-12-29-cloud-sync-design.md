@@ -1,0 +1,555 @@
+# FDS Cloud Sync 設計文檔
+
+> **建立日期：** 2025-12-29
+> **狀態：** 設計完成，待實作
+> **目標：** Phase 2 收尾 - 骨架 JSON 雲端備份
+
+---
+
+## 1. 專案概述
+
+### 目標
+
+實作 Cloud Sync 功能，將本地提取的骨架 JSON 檔案上傳至 GCP Cloud Storage，實現：
+- 隱私保護的資料備份（骨架已脫敏，無人臉/身份資訊）
+- 長期資料保存（用於未來 ML 訓練、統計分析）
+- 本地儲存空間釋放（本地僅保留 30 天，雲端永久保留）
+
+### 使用場景
+
+**開發環境：** 一般 PC（非邊緣裝置）
+**網路環境：** 可能不穩定，需要失敗重試機制
+**GCP 經驗：** 使用者首次在 GCP 部署，需完整設定文檔
+
+---
+
+## 2. 核心設計決策
+
+### 2.1 上傳時機：手動觸發 + 自動補償
+
+**選擇方案：** Manual + Auto-retry
+
+**運作方式：**
+- 預設不自動上傳（`upload_on_extract: false`）
+- 提供 CLI 手動觸發：`fds-cloud-sync --upload-pending`
+- 上傳失敗時自動記錄到資料庫，可稍後批次重試
+- 未來可調整為自動上傳（修改配置 `upload_on_extract: true`）
+
+**理由：**
+- 開發階段可靈活控制上傳時機
+- 網路故障不影響核心偵測功能
+- 可先手動測試 GCP 設定，穩定後再自動化
+
+### 2.2 儲存服務：Cloud Storage
+
+**選擇方案：** GCP Cloud Storage (Object Storage)
+
+**配置：**
+- **Bucket 名稱：** `fds-skeletons-{project-id}`
+- **區域：** `asia-east1`（台灣）或 `asia-northeast1`（日本）
+- **儲存類別：** Standard → Coldline → Archive（生命週期自動轉換）
+- **存取控制：** Uniform（統一權限管理）
+
+**理由：**
+- 成本最低（Standard: $0.023/GB/month）
+- 設定簡單（無需設計 database schema）
+- 支援生命週期自動管理（降級但不刪除）
+- 未來可輕鬆整合 BigQuery 做資料分析
+
+### 2.3 檔案組織：日期分層結構
+
+**目錄結構：**
+
+```
+gs://fds-skeletons-{project-id}/
+└── 2025/
+    └── 12/
+        └── 29/
+            ├── evt_1735459200.json
+            ├── evt_1735459800.json
+            └── evt_1735460400.json
+```
+
+**命名規則：**
+- 路徑：`YYYY/MM/DD/evt_{timestamp}.json`
+- 範例：`2025/12/29/evt_1735459200.json`
+
+**理由：**
+- 易於按日期查找和管理
+- Lifecycle rules 可以按資料夾套用
+- 符合時間序列資料的自然組織方式
+
+### 2.4 上傳狀態追蹤：資料庫欄位
+
+**Schema 變更：**
+
+```sql
+-- 新增欄位到 events 表
+ALTER TABLE events ADD COLUMN skeleton_cloud_path TEXT;
+ALTER TABLE events ADD COLUMN skeleton_upload_status TEXT DEFAULT 'pending';
+  -- 狀態: 'pending', 'uploaded', 'failed'
+ALTER TABLE events ADD COLUMN skeleton_upload_error TEXT;
+  -- 失敗時儲存錯誤訊息
+```
+
+**狀態流轉：**
+
+```
+骨架提取完成 → pending
+   ↓
+上傳成功 → uploaded (記錄 cloud_path)
+   ↓
+上傳失敗 → failed (記錄 error message)
+   ↓
+手動重試 → uploaded 或 failed
+```
+
+**理由：**
+- 與現有 `clip_path` 欄位一致
+- 可用 SQL 查詢「所有未上傳的骨架」
+- Web Dashboard 可顯示「已備份到雲端」標記
+
+### 2.5 失敗重試：佇列機制
+
+**重試策略：**
+
+1. **立即重試（同步）：** 失敗時立即重試 3 次，間隔 5 秒
+2. **失敗記錄：** 3 次全部失敗後，標記 `status='failed'` 並記錄錯誤
+3. **批次重試（非同步）：** 執行 `fds-cloud-sync --retry-failed` 重試所有失敗項目
+
+**錯誤分類：**
+
+| 錯誤類型 | 立即重試 | 可批次重試 | 需要人工介入 |
+|---------|---------|-----------|------------|
+| NetworkError | ✅ 3次 | ✅ | ❌ |
+| AuthenticationError | ❌ | ❌ | ✅ 修正金鑰 |
+| QuotaExceededError | ❌ | ✅ 隔天重試 | ❌ |
+| FileNotFoundError | ❌ | ❌ | ✅ 檢查檔案 |
+
+**理由：**
+- 不阻塞主流程（失敗後立即放棄，稍後重試）
+- 可觀察性高（失敗記錄在資料庫）
+- 靈活性高（手動或定時批次重試）
+
+### 2.6 認證方式：Service Account Key
+
+**選擇方案：** Service Account Key（JSON 檔案）
+
+**設定步驟：**
+1. 建立 Service Account：`fds-cloud-sync`
+2. 授予權限：`Storage Object Creator`（僅上傳權限）
+3. 下載 JSON key 至：`~/.gcp/fds-cloud-sync.json`
+4. 環境變數：`GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json`
+
+**理由：**
+- 適合 PC 開發環境
+- 權限精確控制（不能刪除雲端檔案）
+- Docker 部署時可 mount key file
+- GCP 官方文檔完整
+
+---
+
+## 3. 系統架構
+
+### 3.1 核心元件
+
+```
+src/lifecycle/cloud_sync.py
+├── CloudStorageUploader     # GCS 上傳核心邏輯
+│   ├── upload_skeleton()    # 單檔上傳
+│   ├── upload_batch()       # 批次上傳
+│   └── retry_failed()       # 重試失敗項目
+│
+└── UploadQueue              # 上傳佇列管理
+    ├── mark_pending()       # 標記待上傳
+    ├── mark_uploaded()      # 標記已上傳
+    └── get_failed_items()   # 取得失敗清單
+```
+
+### 3.2 CLI 工具
+
+**入口點：** `scripts/cloud_sync.py` → CLI 命令 `fds-cloud-sync`
+
+**支援指令：**
+
+```bash
+# 上傳所有待上傳的骨架 JSON
+fds-cloud-sync --upload-pending
+
+# 重試所有失敗的上傳
+fds-cloud-sync --retry-failed
+
+# 上傳指定事件
+fds-cloud-sync --event-id evt_1735459200
+
+# 檢查上傳狀態（不執行上傳）
+fds-cloud-sync --status
+
+# 乾運行模式（顯示會上傳什麼，但不實際執行）
+fds-cloud-sync --upload-pending --dry-run
+```
+
+### 3.3 配置檔
+
+**新增到 `config/settings.yaml`：**
+
+```yaml
+cloud_sync:
+  enabled: true
+  gcs_bucket: "fds-skeletons-{your-project-id}"
+  upload_on_extract: false  # 未來可改為 true 自動上傳
+  retry_attempts: 3
+  retry_delay_seconds: 5
+```
+
+**環境變數（`.env`）：**
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/home/kionc9986/.gcp/fds-cloud-sync.json
+GCS_BUCKET_NAME=fds-skeletons-{your-project-id}
+```
+
+---
+
+## 4. 錯誤處理
+
+### 4.1 例外類型
+
+```python
+class UploadError(Exception):
+    """上傳錯誤基類"""
+    pass
+
+class NetworkError(UploadError):
+    """網路錯誤（可重試）"""
+    pass
+
+class AuthenticationError(UploadError):
+    """認證錯誤（不可重試，需修正配置）"""
+    pass
+
+class QuotaExceededError(UploadError):
+    """配額超限（可重試，但需等待）"""
+    pass
+```
+
+### 4.2 錯誤記錄範例
+
+```
+skeleton_upload_error: "NetworkError: [Errno 111] Connection refused (attempt 3/3)"
+skeleton_upload_error: "AuthenticationError: Invalid service account key"
+skeleton_upload_error: "QuotaExceededError: Daily upload limit exceeded"
+```
+
+---
+
+## 5. GCP 設定指南
+
+### 5.1 前置需求
+
+- ✅ GCP 帳號已開通
+- ✅ 已有空白 GCP 專案可用
+- 📝 記下專案 ID（例如：`my-project-123456`）
+
+### 5.2 啟用 Cloud Storage API
+
+**GCP Console：**
+1. 選擇你的專案
+2. 左側選單 → "APIs & Services" → "Library"
+3. 搜尋 "Cloud Storage API"
+4. 點擊 "Enable"
+
+**或用 gcloud CLI：**
+
+```bash
+gcloud config set project YOUR_PROJECT_ID
+gcloud services enable storage.googleapis.com
+```
+
+### 5.3 建立 Cloud Storage Bucket
+
+**Bucket 命名規則：** `fds-skeletons-{your-project-id}`
+
+**GCP Console：**
+1. 左側選單 → "Cloud Storage" → "Buckets"
+2. 點擊 "Create Bucket"
+3. 設定：
+   - **名稱：** `fds-skeletons-{your-project-id}`
+   - **Location type：** Region
+   - **Location：** `asia-east1`（台灣）或 `asia-northeast1`（日本）
+   - **Storage class：** Standard
+   - **Access control：** Uniform
+4. 點擊 "Create"
+
+**或用 gsutil CLI：**
+
+```bash
+gsutil mb -c STANDARD -l asia-east1 gs://fds-skeletons-{your-project-id}
+```
+
+### 5.4 建立 Service Account
+
+**GCP Console：**
+1. 左側選單 → "IAM & Admin" → "Service Accounts"
+2. 點擊 "Create Service Account"
+3. 填寫資訊：
+   - **Name：** `fds-cloud-sync`
+   - **Description：** FDS skeleton JSON uploader
+4. 點擊 "Create and Continue"
+5. 授予權限：
+   - 搜尋並選擇 "Cloud Storage > Storage Object Creator"
+   - 點擊 "Continue"
+6. 跳過 "Grant users access"（選填）
+7. 點擊 "Done"
+
+### 5.5 下載 Service Account Key
+
+**GCP Console：**
+1. 在 Service Accounts 列表中找到 `fds-cloud-sync`
+2. 點擊右側 "⋮" → "Manage keys"
+3. 點擊 "Add Key" → "Create new key"
+4. Key type：JSON
+5. 點擊 "Create"（JSON 檔案會自動下載）
+
+**本地設定：**
+
+```bash
+# 移動金鑰檔案到安全位置
+mkdir -p ~/.gcp
+mv ~/Downloads/fds-fall-detection-*.json ~/.gcp/fds-cloud-sync.json
+chmod 600 ~/.gcp/fds-cloud-sync.json  # 設定僅自己可讀
+
+# 更新 .env
+echo 'GOOGLE_APPLICATION_CREDENTIALS=/home/kionc9986/.gcp/fds-cloud-sync.json' >> .env
+echo 'GCS_BUCKET_NAME=fds-skeletons-{your-project-id}' >> .env
+```
+
+### 5.6 設定 Lifecycle Policy（自動降級儲存）
+
+**建立 `lifecycle.json`：**
+
+```json
+{
+  "lifecycle": {
+    "rule": [
+      {
+        "action": {"type": "SetStorageClass", "storageClass": "COLDLINE"},
+        "condition": {"age": 30},
+        "description": "30 天後轉為 Coldline（降低 80% 成本）"
+      },
+      {
+        "action": {"type": "SetStorageClass", "storageClass": "ARCHIVE"},
+        "condition": {"age": 365},
+        "description": "1 年後轉為 Archive（最低成本）"
+      }
+    ]
+  }
+}
+```
+
+**套用到 Bucket：**
+
+```bash
+gsutil lifecycle set lifecycle.json gs://fds-skeletons-{your-project-id}
+
+# 驗證
+gsutil lifecycle get gs://fds-skeletons-{your-project-id}
+```
+
+---
+
+## 6. 測試策略
+
+### 6.1 本地驗證步驟
+
+```bash
+# Step 1: 驗證 GCP 認證
+python -c "
+from google.cloud import storage
+client = storage.Client()
+print('✅ GCP 認證成功')
+print(f'專案 ID: {client.project}')
+"
+
+# Step 2: 驗證 Bucket 存取權限
+python -c "
+from google.cloud import storage
+client = storage.Client()
+bucket = client.bucket('fds-skeletons-{your-project-id}')
+print(f'✅ Bucket 存在: {bucket.exists()}')
+"
+
+# Step 3: 測試上傳單一檔案
+fds-cloud-sync --event-id evt_123 --dry-run  # 先乾運行
+fds-cloud-sync --event-id evt_123             # 實際上傳
+
+# Step 4: 驗證檔案已上傳
+gsutil ls gs://fds-skeletons-{your-project-id}/2025/12/29/
+
+# Step 5: 測試批次上傳
+fds-cloud-sync --upload-pending
+
+# Step 6: 測試失敗重試
+fds-cloud-sync --retry-failed
+```
+
+### 6.2 單元測試
+
+**檔案：** `tests/lifecycle/test_cloud_sync.py`
+
+```python
+class TestCloudStorageUploader:
+    def test_upload_skeleton_success()         # 成功上傳
+    def test_upload_skeleton_network_error()   # 網路錯誤重試
+    def test_upload_skeleton_auth_error()      # 認證錯誤不重試
+    def test_generate_cloud_path()             # 路徑生成正確
+    def test_mark_upload_status()              # 資料庫狀態更新
+    def test_get_pending_uploads()             # 查詢待上傳清單
+    def test_retry_failed_uploads()            # 重試失敗項目
+    def test_dry_run_mode()                    # 乾運行不實際上傳
+```
+
+### 6.3 整合測試
+
+1. **完整流程：** 提取骨架 → 上傳 → 驗證雲端檔案 → 確認資料庫狀態
+2. **失敗恢復：** Mock 網路錯誤 → 確認標記 failed → 修復網路 → 重試成功
+3. **並發上傳：** 批次上傳 10 個檔案 → 驗證全部成功
+
+---
+
+## 7. 成本估算與生命週期管理
+
+### 7.1 費用估算（永久保留）
+
+**假設場景：** 每天 10 個跌倒事件，每個骨架 JSON 約 50KB
+
+```
+第一年累積：10 events/day × 365 days × 50KB = 182MB
+第五年累積：182MB × 5 = 910MB ≈ 0.91GB
+
+儲存成本（混合儲存類別）：
+- 前 30 天（Standard）：0.18GB × $0.023 = $0.004/month
+- 30 天-1 年（Coldline）：0.18GB × $0.004 = $0.0007/month
+- 1 年以上（Archive）：0.18GB × $0.0012 = $0.0002/month
+
+五年總成本：約 $0.5 ≈ NT$15（幾乎可忽略）
+```
+
+### 7.2 儲存類別比較
+
+| 儲存類別 | 使用時機 | 成本（asia-east1） | 存取延遲 |
+|---------|---------|------------------|---------|
+| **Standard** | 0-30 天 | $0.023/GB/month | 毫秒級 |
+| **Coldline** | 30 天-1 年 | $0.004/GB/month | 毫秒級 |
+| **Archive** | 1 年以上 | $0.0012/GB/month | 毫秒級 |
+
+### 7.3 完整資料生命週期
+
+**配置（`config/settings.yaml`）：**
+
+```yaml
+lifecycle:
+  clip_retention_days: 7          # 影片保留 7 天後刪除
+  skeleton_retention_days: 30     # 骨架 JSON 本地保留 30 天
+  cloud_retention_days: -1        # -1 表示雲端永久保留
+```
+
+**時間軸：**
+
+- **Day 0-7：** 本地有影片 + 骨架 JSON + 雲端備份（Standard）
+- **Day 7-30：** 本地僅骨架 JSON + 雲端備份（Standard）
+- **Day 30-365：** 本地已清空 + 雲端備份（Coldline，成本降低 80%）
+- **Day 365+：** 雲端長期歸檔（Archive，成本降低 95%）
+
+**永久保留理由：**
+- 骨架 JSON 檔案極小（50KB）
+- 已脫敏（無隱私問題）
+- 未來用途：ML 模型訓練、跌倒模式分析、長期統計
+
+---
+
+## 8. 實作檢查清單
+
+### 8.1 核心功能
+
+- [ ] 實作 `src/lifecycle/cloud_sync.py`
+  - [ ] `CloudStorageUploader` 類別
+  - [ ] `upload_skeleton()` 方法
+  - [ ] `upload_batch()` 方法
+  - [ ] `retry_failed()` 方法
+- [ ] 實作 `scripts/cloud_sync.py` CLI 工具
+- [ ] 更新資料庫 schema（新增 3 個欄位）
+- [ ] 新增配置項目到 `config/settings.yaml`
+- [ ] 更新 `pyproject.toml`（新增 CLI 入口點 `fds-cloud-sync`）
+
+### 8.2 測試
+
+- [ ] 單元測試：`tests/lifecycle/test_cloud_sync.py`（8 個測試）
+- [ ] 整合測試：完整流程驗證
+- [ ] Mock 測試：網路錯誤、認證錯誤、配額超限
+
+### 8.3 文檔
+
+- [ ] GCP 設定步驟文檔（含螢幕截圖）
+- [ ] CLI 使用範例
+- [ ] 故障排除指南
+- [ ] 更新 `CLAUDE.md` 和 `README.md`
+
+### 8.4 依賴
+
+- [ ] 新增 `google-cloud-storage>=2.10.0` 到 `pyproject.toml`
+- [ ] 執行 `uv sync` 安裝依賴
+
+---
+
+## 9. 未來擴充
+
+### 9.1 自動化排程
+
+**目標：** 骨架提取完成後自動上傳（不需手動觸發）
+
+**實作方式：**
+```yaml
+# config/settings.yaml
+cloud_sync:
+  upload_on_extract: true  # 改為 true
+```
+
+**觸發點：** `SkeletonExtractor.extract_and_save()` 完成後呼叫 `CloudStorageUploader.upload_skeleton()`
+
+### 9.2 Web Dashboard 整合
+
+**功能：**
+- 事件列表顯示「☁️ 已備份」圖示
+- 點擊可從雲端下載骨架 JSON（Signed URL）
+- 上傳狀態統計（成功/失敗/待上傳）
+
+### 9.3 BigQuery 整合（資料分析）
+
+**使用場景：** 大量歷史資料的 SQL 查詢和 ML 訓練
+
+**實作方式：**
+- Cloud Function 觸發器：GCS 新增檔案 → 自動匯入 BigQuery
+- Schema mapping：JSON → BigQuery Table
+
+---
+
+## 10. 參考資料
+
+### GCP 官方文檔
+
+- [Cloud Storage 快速入門](https://cloud.google.com/storage/docs/quickstart-console)
+- [Service Account 建立指南](https://cloud.google.com/iam/docs/creating-managing-service-accounts)
+- [Object Lifecycle Management](https://cloud.google.com/storage/docs/lifecycle)
+- [Python Client Library](https://cloud.google.com/python/docs/reference/storage/latest)
+
+### Python SDK
+
+- [google-cloud-storage](https://googleapis.dev/python/storage/latest/index.html)
+- [認證設定](https://cloud.google.com/docs/authentication/getting-started)
+
+---
+
+**文檔版本：** 1.0
+**最後更新：** 2025-12-29
+**下一步：** 建立實作計畫（使用 superpowers:writing-plans）
