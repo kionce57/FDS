@@ -1,38 +1,48 @@
-version: '3.8'
+# FDS (Fall Detection System) Docker Compose Configuration
+# 使用方法:
+#   啟動全部:   docker compose up -d
+#   只啟動 Web: docker compose up fds-web
+#   清理任務:   docker compose --profile cleanup run --rm fds-cleanup
+#   重新建置:   docker compose build (程式碼改動後通常 < 30 秒)
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-common-env: &common-env
+  LINE_NOTIFY_TOKEN: ${LINE_NOTIFY_TOKEN:-}
+  PYTHONUNBUFFERED: "1"
 
 services:
+  # ----------------------------------------------------------
+  # 主應用程式 - Fall Detection Pipeline (Heavy Image)
+  # ----------------------------------------------------------
   fds:
     build:
       context: .
       dockerfile: Dockerfile
-    image: fds:latest
+    image: fds-app:latest
     container_name: fds-app
 
-    # Device access for camera
-    devices:
-      - /dev/video0:/dev/video0  # USB camera (adjust if needed)
+    # 使用測試影片時請註解掉 devices
+    # devices:
+    #   - /dev/video0:/dev/video0
 
-    # Privileged mode for camera access (use with caution)
-    # privileged: true
-
-    # Environment variables
     environment:
-      - LINE_NOTIFY_TOKEN=${LINE_NOTIFY_TOKEN}
-      - PYTHONUNBUFFERED=1
+      <<: *common-env
 
-    # Volume mounts for data persistence
     volumes:
-      - ./data:/app/data                    # Database and clips
-      - ./config:/app/config:ro             # Config files (read-only)
-      - ./logs:/app/logs                    # Application logs
+      - ./data:/app/data
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+      - ./tests:/app/tests:ro
+      # 掛載原始碼以便部分修改不用重啟 (Python 緩存可能有影響，但 pyc 已停用)
+      - ./src:/app/src:ro 
 
-    # Restart policy
     restart: unless-stopped
 
-    # Network mode (host for better camera access)
-    # network_mode: host
-
-    # Resource limits
     deploy:
       resources:
         limits:
@@ -42,32 +52,68 @@ services:
           cpus: '1.0'
           memory: 1G
 
-    # Logging
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
 
-  # Cleanup scheduler (runs daily at 3 AM)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ----------------------------------------------------------
+  # Web Dashboard - FastAPI Frontend (Lightweight Image)
+  # ----------------------------------------------------------
+  fds-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web  # Separate lightweight build
+    image: fds-web:latest
+    container_name: fds-web
+
+    command: ["python", "-m", "src.web.app"]
+
+    environment:
+      <<: *common-env
+
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+      # 關鍵修正: 掛載 src 目錄，讓靜態檔案修改即時生效！
+      - ./src:/app/src:ro
+
+    ports:
+      - "8000:8000"
+
+    restart: unless-stopped
+
+    logging: *default-logging
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ----------------------------------------------------------
+  # 清理排程器 - 使用主程式映像
+  # ----------------------------------------------------------
   fds-cleanup:
     build:
       context: .
       dockerfile: Dockerfile
-    image: fds:latest
+    image: fds-app:latest
     container_name: fds-cleanup
 
-    # Override command to run cleanup
     command: ["python", "-m", "scripts.cleanup_clips"]
 
-    # Volume mounts (same as main app)
     volumes:
       - ./data:/app/data
       - ./config:/app/config:ro
 
-    # Run once and exit
     restart: "no"
 
-    # Profiles to run separately
     profiles:
       - cleanup

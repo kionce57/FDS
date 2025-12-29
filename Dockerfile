@@ -1,16 +1,15 @@
+# syntax=docker/dockerfile:1.4
 # Multi-stage build for Fall Detection System
-# Stage 1: Builder
+# 優化重點: 最大化 layer cache 利用率
+
+# ============================================================
+# Stage 1: Builder - 安裝依賴
+# ============================================================
 FROM python:3.12-slim AS builder
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install build dependencies (合併成單一 layer)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libgl1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -18,20 +17,26 @@ RUN apt-get update && apt-get install -y \
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
-# Set working directory
 WORKDIR /app
 
-# Copy dependency files (README.md required by hatchling)
-COPY pyproject.toml uv.lock README.md ./
+# 關鍵優化: 先複製依賴定義檔，觸發依賴快取
+# 只有 pyproject.toml 或 uv.lock 改動才會重新安裝依賴
+COPY pyproject.toml uv.lock ./
 
-# Install dependencies using uv
-RUN uv sync --frozen --no-dev
+# 建立空的 README.md (hatchling 需要) 避免依賴變化
+RUN touch README.md
 
-# Stage 2: Runtime
-FROM python:3.12-slim
+# 安裝依賴 (這層會被快取，除非 pyproject.toml/uv.lock 改動)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project
 
-# Install runtime dependencies for OpenCV
-RUN apt-get update && apt-get install -y \
+# ============================================================
+# Stage 2: Runtime - 最小化映像
+# ============================================================
+FROM python:3.12-slim AS runtime
+
+# Install runtime dependencies for OpenCV (單一 layer)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
@@ -42,37 +47,41 @@ RUN apt-get update && apt-get install -y \
     libavcodec-dev \
     libavformat-dev \
     libswscale-dev \
-    && rm -rf /var/lib/apt/lists/*
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Create non-root user
+# Create non-root user and directories (單一 layer)
 RUN useradd -m -u 1000 fds && \
-    mkdir -p /app/data /app/config && \
+    mkdir -p /app/data /app/config /app/logs && \
     chown -R fds:fds /app
 
 WORKDIR /app
 
-# Copy virtual environment from builder
+# Copy virtual environment from builder (這層很大但會被快取)
 COPY --from=builder /app/.venv /app/.venv
 
-# Copy application code
-COPY --chown=fds:fds . .
-
-# Set ownership
-RUN chown -R fds:fds /app
+# 關鍵: 最後才複製應用程式碼，讓程式碼改動不影響依賴層
+COPY --chown=fds:fds src/ ./src/
+COPY --chown=fds:fds scripts/ ./scripts/
+COPY --chown=fds:fds main.py pyproject.toml README.md ./
+COPY --chown=fds:fds config/ ./config/
+COPY --chown=fds:fds yolov8n-pose.pt ./
 
 # Switch to non-root user
 USER fds
 
-# Add venv to PATH
+# Environment
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
-# Expose any ports if needed (optional)
-# EXPOSE 8000
+# Expose web dashboard port
+EXPOSE 8000
 
-# Health check (optional)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import sys; sys.exit(0)"
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/api/status || python -c "import sys; sys.exit(0)"
 
 # Default command
 CMD ["python", "main.py"]

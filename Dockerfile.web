@@ -1,0 +1,55 @@
+# Dockerfile.web
+# Lightweight Dockerfile for FDS Web Dashboard
+# Optimized for fast rebuilds (frontend changes)
+
+FROM python:3.12-slim
+
+# Install system dependencies (minimal)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv package manager
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+WORKDIR /app
+
+# Install ONLY web dependencies
+# We bypass pyproject.toml's full list to avoid heavy AI libs (torch, opencv, etc.)
+RUN uv pip install --system \
+    "fastapi>=0.110.0" \
+    "uvicorn>=0.27.0" \
+    "jinja2>=3.1.0" \
+    "python-multipart>=0.0.9" \
+    "httpx>=0.27.0"
+
+# Setup user
+RUN useradd -m -u 1000 fds && \
+    mkdir -p /app/data /app/config /app/logs && \
+    chown -R fds:fds /app
+
+# Copy application code
+# We copy everything so the import structure (src.web...) works
+COPY --chown=fds:fds src/ ./src/
+# Copy other necessary files
+COPY --chown=fds:fds scripts/ ./scripts/
+COPY --chown=fds:fds config/ ./config/
+COPY --chown=fds:fds main.py pyproject.toml README.md ./
+
+# Switch user
+USER fds
+
+# Environment
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Expose web port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/api/status || exit 1
+
+# Command
+CMD ["python", "-m", "src.web.app"]
