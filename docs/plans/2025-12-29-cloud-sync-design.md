@@ -131,21 +131,51 @@ ALTER TABLE events ADD COLUMN skeleton_upload_error TEXT;
 - 可觀察性高（失敗記錄在資料庫）
 - 靈活性高（手動或定時批次重試）
 
-### 2.6 認證方式：Service Account Key
+### 2.6 認證方式：Workload Identity Federation (WIF) 【推薦】
 
-**選擇方案：** Service Account Key（JSON 檔案）
+**選擇方案：** Workload Identity Federation with Application Default Credentials
 
-**設定步驟：**
-1. 建立 Service Account：`fds-cloud-sync`
-2. 授予權限：`Storage Object Creator`（僅上傳權限）
-3. 下載 JSON key 至：`~/.gcp/fds-cloud-sync.json`
-4. 環境變數：`GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json`
+**⚠️ 重要：安全性最佳實踐**
 
-**理由：**
-- 適合 PC 開發環境
-- 權限精確控制（不能刪除雲端檔案）
-- Docker 部署時可 mount key file
-- GCP 官方文檔完整
+根據 Google Cloud 官方建議，**應優先使用 Workload Identity Federation**，避免使用 Service Account Keys：
+
+| 比較項目 | Service Account Key ❌ | Workload Identity Federation ✅ |
+|---------|----------------------|--------------------------------|
+| **憑證類型** | 長期靜態金鑰（永久有效） | 短期 token（自動過期） |
+| **洩漏風險** | 高（一旦洩漏，永久有效） | 低（token 自動過期） |
+| **金鑰管理** | 需手動輪替、儲存、保護 | 無需儲存金鑰檔案 |
+| **最佳實踐** | ❌ Google 不推薦 | ✅ Google 強烈推薦 |
+
+**PC 開發環境的 WIF 設定方式：**
+
+**方案 A：使用 gcloud CLI（推薦用於開發）**
+```bash
+# 1. 安裝 gcloud CLI
+# 2. 執行登入
+gcloud auth application-default login
+
+# 3. 憑證自動儲存到 ~/.config/gcloud/application_default_credentials.json
+# 4. Python SDK 會自動使用此憑證（無需額外設定）
+```
+
+**方案 B：使用 Workload Identity Pool（推薦用於生產）**
+- 建立 Workload Identity Pool 和 Provider（支援 OIDC/SAML）
+- 生成 external credential configuration file
+- 無需下載 Service Account Key
+
+**備選方案：Service Account Key（僅測試用）**
+- ⚠️ **不推薦用於生產環境**
+- 僅適用於快速原型測試
+- 必須嚴格保護金鑰檔案（不可 commit 到 git）
+- 定期輪替金鑰（建議 90 天）
+
+**本專案採用：方案 A（gcloud ADC）**
+
+理由：
+- PC 開發環境最簡單的設定方式
+- 無需管理金鑰檔案
+- 符合 Google 安全性最佳實踐
+- 未來可無縫升級到方案 B（Workload Identity Pool）
 
 ---
 
@@ -287,42 +317,119 @@ gcloud services enable storage.googleapis.com
 gsutil mb -c STANDARD -l asia-east1 gs://fds-skeletons-{your-project-id}
 ```
 
-### 5.4 建立 Service Account
+### 5.4 設定認證（使用 gcloud CLI - 推薦）
 
-**GCP Console：**
-1. 左側選單 → "IAM & Admin" → "Service Accounts"
-2. 點擊 "Create Service Account"
-3. 填寫資訊：
-   - **Name：** `fds-cloud-sync`
-   - **Description：** FDS skeleton JSON uploader
-4. 點擊 "Create and Continue"
-5. 授予權限：
-   - 搜尋並選擇 "Cloud Storage > Storage Object Creator"
-   - 點擊 "Continue"
-6. 跳過 "Grant users access"（選填）
-7. 點擊 "Done"
-
-### 5.5 下載 Service Account Key
-
-**GCP Console：**
-1. 在 Service Accounts 列表中找到 `fds-cloud-sync`
-2. 點擊右側 "⋮" → "Manage keys"
-3. 點擊 "Add Key" → "Create new key"
-4. Key type：JSON
-5. 點擊 "Create"（JSON 檔案會自動下載）
-
-**本地設定：**
+**Step 1: 安裝 gcloud CLI**
 
 ```bash
-# 移動金鑰檔案到安全位置
-mkdir -p ~/.gcp
-mv ~/Downloads/fds-fall-detection-*.json ~/.gcp/fds-cloud-sync.json
-chmod 600 ~/.gcp/fds-cloud-sync.json  # 設定僅自己可讀
+# Linux/WSL2
+curl https://sdk.cloud.google.com | bash
+exec -l $SHELL
 
-# 更新 .env
-echo 'GOOGLE_APPLICATION_CREDENTIALS=/home/kionc9986/.gcp/fds-cloud-sync.json' >> .env
-echo 'GCS_BUCKET_NAME=fds-skeletons-{your-project-id}' >> .env
+# macOS（使用 Homebrew）
+brew install google-cloud-sdk
+
+# 驗證安裝
+gcloud --version
 ```
+
+**Step 2: 初始化 gcloud 並登入**
+
+```bash
+# 初始化配置
+gcloud init
+
+# 選擇你的 GCP 專案
+gcloud config set project YOUR_PROJECT_ID
+
+# 設定 Application Default Credentials（ADC）
+gcloud auth application-default login
+```
+
+執行 `gcloud auth application-default login` 後：
+1. 瀏覽器會自動開啟 Google 登入頁面
+2. 選擇你的 Google 帳號並授權
+3. 憑證會自動儲存到 `~/.config/gcloud/application_default_credentials.json`
+4. Python SDK 會自動使用此憑證（無需額外設定環境變數）
+
+**Step 3: 授予你的帳號 Storage 權限**
+
+```bash
+# 取得你的 Google 帳號 email
+gcloud config get-value account
+
+# 授予 Storage Object Creator 角色
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+    --member="user:YOUR_EMAIL@gmail.com" \
+    --role="roles/storage.objectCreator"
+```
+
+**Step 4: 驗證認證**
+
+```bash
+# 驗證 ADC 已設定
+gcloud auth application-default print-access-token
+
+# 測試 Cloud Storage 存取
+gsutil ls gs://fds-skeletons-{your-project-id}
+```
+
+**環境變數（可選）：**
+
+```bash
+# .env 檔案（僅需設定 bucket 名稱）
+echo 'GCS_BUCKET_NAME=fds-skeletons-{your-project-id}' >> .env
+
+# GOOGLE_APPLICATION_CREDENTIALS 環境變數不需要設定
+# gcloud ADC 會自動使用 ~/.config/gcloud/application_default_credentials.json
+```
+
+---
+
+### 5.5 備選方案：Service Account（用於 CI/CD 或自動化）
+
+**⚠️ 僅在以下情況使用此方案：**
+- CI/CD pipeline（無法使用互動式登入）
+- 自動化腳本（無人值守執行）
+- 需要精確的最小權限控制
+
+**不推薦用於：** 本地開發環境（請使用 gcloud ADC）
+
+<details>
+<summary>點擊展開 Service Account 設定步驟</summary>
+
+**建立 Service Account：**
+
+```bash
+# 使用 gcloud CLI 建立
+gcloud iam service-accounts create fds-cloud-sync \
+    --description="FDS skeleton JSON uploader" \
+    --display-name="FDS Cloud Sync"
+
+# 授予權限
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+    --member="serviceAccount:fds-cloud-sync@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+    --role="roles/storage.objectCreator"
+
+# 建立並下載金鑰（⚠️ 僅測試用）
+gcloud iam service-accounts keys create ~/.gcp/fds-cloud-sync.json \
+    --iam-account=fds-cloud-sync@YOUR_PROJECT_ID.iam.gserviceaccount.com
+
+chmod 600 ~/.gcp/fds-cloud-sync.json
+
+# 設定環境變數
+echo 'GOOGLE_APPLICATION_CREDENTIALS=/home/kionc9986/.gcp/fds-cloud-sync.json' >> .env
+```
+
+**⚠️ 安全提醒：**
+- 金鑰檔案絕對不可 commit 到 git
+- 定期輪替金鑰（建議 90 天）
+- 使用後立即刪除（`gcloud iam service-accounts keys delete`）
+- 考慮升級到 Workload Identity Pool
+
+</details>
+
+---
 
 ### 5.6 設定 Lifecycle Policy（自動降級儲存）
 
@@ -538,18 +645,28 @@ cloud_sync:
 
 ### GCP 官方文檔
 
+**認證與安全性：**
+- [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation) - 官方 WIF 文檔
+- [Best Practices for Workload Identity Federation](https://cloud.google.com/iam/docs/best-practices-for-using-workload-identity-federation) - WIF 最佳實踐
+- [Best Practices for Service Account Keys](https://cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys) - 為何避免使用 Service Account Keys
+- [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) - ADC 設定指南
+
+**Cloud Storage：**
 - [Cloud Storage 快速入門](https://cloud.google.com/storage/docs/quickstart-console)
-- [Service Account 建立指南](https://cloud.google.com/iam/docs/creating-managing-service-accounts)
 - [Object Lifecycle Management](https://cloud.google.com/storage/docs/lifecycle)
 - [Python Client Library](https://cloud.google.com/python/docs/reference/storage/latest)
 
 ### Python SDK
 
 - [google-cloud-storage](https://googleapis.dev/python/storage/latest/index.html)
-- [認證設定](https://cloud.google.com/docs/authentication/getting-started)
+
+### 安全性文章
+
+- [Enable Keyless Access with Workload Identity Federation](https://cloud.google.com/blog/products/identity-security/enable-keyless-access-to-gcp-with-workload-identity-federation) - Google Cloud Blog
+- [Goodbye, Service Account Keys!](https://medium.com/google-cloud/goodbye-service-account-keys-e009f3b8ffef) - 為何避免使用 Service Account Keys
 
 ---
 
-**文檔版本：** 1.0
-**最後更新：** 2025-12-29
+**文檔版本：** 1.1
+**最後更新：** 2025-12-29（更新為 WIF 最佳實踐）
 **下一步：** 建立實作計畫（使用 superpowers:writing-plans）
