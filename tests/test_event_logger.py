@@ -72,3 +72,87 @@ class TestEventLogger:
 
         events = logger.get_recent_events(limit=3)
         assert len(events) == 3
+
+    def test_database_has_cloud_sync_columns(self, db_path):
+        """Verify events table has skeleton_cloud_path, skeleton_upload_status, skeleton_upload_error columns"""
+        logger = EventLogger(str(db_path))
+
+        # Check schema
+        cursor = logger.conn.execute("PRAGMA table_info(events)")
+        columns = {row[1] for row in cursor.fetchall()}
+
+        assert "skeleton_cloud_path" in columns
+        assert "skeleton_upload_status" in columns
+        assert "skeleton_upload_error" in columns
+
+        logger.close()
+
+    def test_event_logger_initializes_upload_status_as_pending(self, logger):
+        """Verify skeleton_upload_status defaults to 'pending'"""
+        event = FallEvent(
+            event_id="evt_test_001",
+            confirmed_at=1234567890.0,
+            last_notified_at=1234567890.0,
+            notification_count=1
+        )
+        logger.on_fall_confirmed(event)
+
+        cursor = logger.conn.execute(
+            "SELECT skeleton_upload_status FROM events WHERE event_id = ?",
+            ("evt_test_001",)
+        )
+        status = cursor.fetchone()[0]
+        assert status == "pending"
+
+    def test_update_skeleton_upload_success(self, logger):
+        """Verify update_skeleton_upload marks as uploaded"""
+        event = FallEvent(
+            event_id="evt_test_002",
+            confirmed_at=1234567890.0,
+            last_notified_at=1234567890.0,
+            notification_count=1
+        )
+        logger.on_fall_confirmed(event)
+
+        logger.update_skeleton_upload(
+            event_id="evt_test_002",
+            cloud_path="2025/12/29/evt_test_002.json",
+            status="uploaded",
+            error=None
+        )
+
+        cursor = logger.conn.execute(
+            "SELECT skeleton_cloud_path, skeleton_upload_status, skeleton_upload_error FROM events WHERE event_id = ?",
+            ("evt_test_002",)
+        )
+        cloud_path, status, error = cursor.fetchone()
+
+        assert cloud_path == "2025/12/29/evt_test_002.json"
+        assert status == "uploaded"
+        assert error is None
+
+    def test_update_skeleton_upload_failed(self, logger):
+        """Verify update_skeleton_upload marks as failed with error"""
+        event = FallEvent(
+            event_id="evt_test_003",
+            confirmed_at=1234567890.0,
+            last_notified_at=1234567890.0,
+            notification_count=1
+        )
+        logger.on_fall_confirmed(event)
+
+        logger.update_skeleton_upload(
+            event_id="evt_test_003",
+            cloud_path=None,
+            status="failed",
+            error="NetworkError: Connection timeout"
+        )
+
+        cursor = logger.conn.execute(
+            "SELECT skeleton_upload_status, skeleton_upload_error FROM events WHERE event_id = ?",
+            ("evt_test_003",)
+        )
+        status, error = cursor.fetchone()
+
+        assert status == "failed"
+        assert error == "NetworkError: Connection timeout"

@@ -21,6 +21,9 @@ class EventLogger(FallEventObserver):
                 recovered_at REAL,
                 notification_count INTEGER DEFAULT 1,
                 clip_path TEXT,
+                skeleton_cloud_path TEXT,
+                skeleton_upload_status TEXT DEFAULT 'pending',
+                skeleton_upload_error TEXT,
                 created_at REAL NOT NULL
             )
         """)
@@ -48,6 +51,25 @@ class EventLogger(FallEventObserver):
         self.conn.execute(
             "UPDATE events SET clip_path = ? WHERE event_id = ?",
             (clip_path, event_id),
+        )
+        self.conn.commit()
+
+    def update_skeleton_upload(
+        self, event_id: str, cloud_path: str | None, status: str, error: str | None = None
+    ) -> None:
+        """Update skeleton upload status
+
+        Args:
+            event_id: Event ID
+            cloud_path: GCS path (e.g., "2025/12/29/evt_123.json")
+            status: 'pending', 'uploaded', or 'failed'
+            error: Error message if status is 'failed'
+        """
+        self.conn.execute(
+            """UPDATE events
+            SET skeleton_cloud_path = ?, skeleton_upload_status = ?, skeleton_upload_error = ?
+            WHERE event_id = ?""",
+            (cloud_path, status, error, event_id),
         )
         self.conn.commit()
 
