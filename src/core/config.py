@@ -49,6 +49,15 @@ class LifecycleConfig:
 
 
 @dataclass
+class CloudSyncConfig:
+    enabled: bool
+    gcs_bucket: str
+    upload_on_extract: bool
+    retry_attempts: int
+    retry_delay_seconds: int
+
+
+@dataclass
 class Config:
     camera: CameraConfig
     detection: DetectionConfig
@@ -56,6 +65,7 @@ class Config:
     recording: RecordingConfig
     notification: NotificationConfig
     lifecycle: LifecycleConfig
+    cloud_sync: CloudSyncConfig
 
 
 def _substitute_env_vars(value: str) -> str:
@@ -93,4 +103,5 @@ def load_config(config_path: str = "config/settings.yaml") -> Config:
         recording=RecordingConfig(**config_data["recording"]),
         notification=NotificationConfig(**config_data["notification"]),
         lifecycle=LifecycleConfig(**config_data["lifecycle"]),
+        cloud_sync=CloudSyncConfig(**config_data["cloud_sync"]),
     )
