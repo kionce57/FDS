@@ -131,24 +131,23 @@ ALTER TABLE events ADD COLUMN skeleton_upload_error TEXT;
 - 可觀察性高（失敗記錄在資料庫）
 - 靈活性高（手動或定時批次重試）
 
-### 2.6 認證方式：Workload Identity Federation (WIF) 【推薦】
+### 2.6 認證方式：User Account (ADC) 【推薦用於開發】
 
-**選擇方案：** Workload Identity Federation with Application Default Credentials
+**選擇方案：** Application Default Credentials (ADC) with User Account
 
-**⚠️ 重要：安全性最佳實踐**
+**⚠️ 重要：認證方式比較**
 
-根據 Google Cloud 官方建議，**應優先使用 Workload Identity Federation**，避免使用 Service Account Keys：
+根據 Google Cloud 官方建議，針對不同環境選擇合適的認證方式：
 
-| 比較項目 | Service Account Key ❌ | Workload Identity Federation ✅ |
-|---------|----------------------|--------------------------------|
-| **憑證類型** | 長期靜態金鑰（永久有效） | 短期 token（自動過期） |
-| **洩漏風險** | 高（一旦洩漏，永久有效） | 低（token 自動過期） |
-| **金鑰管理** | 需手動輪替、儲存、保護 | 無需儲存金鑰檔案 |
-| **最佳實踐** | ❌ Google 不推薦 | ✅ Google 強烈推薦 |
+| 認證方式 | 適用場景 | 安全性 | 設定複雜度 |
+|---------|---------|-------|-----------|
+| **User Account (ADC)** ✅ | 本地開發環境 | 中（本地檔案儲存） | 低 |
+| **Workload Identity Federation** | CI/CD, 外部 IdP | 高（短期 token） | 高 |
+| **Service Account Key** ❌ | 僅測試用 | 低（長期憑證） | 低 |
 
-**PC 開發環境的 WIF 設定方式：**
+**PC 開發環境的認證設定：**
 
-**方案 A：使用 gcloud CLI（推薦用於開發）**
+**方案 A：User Account (gcloud ADC) - 本專案採用**
 ```bash
 # 1. 安裝 gcloud CLI
 # 2. 執行登入
@@ -158,24 +157,36 @@ gcloud auth application-default login
 # 4. Python SDK 會自動使用此憑證（無需額外設定）
 ```
 
-**方案 B：使用 Workload Identity Pool（推薦用於生產）**
-- 建立 Workload Identity Pool 和 Provider（支援 OIDC/SAML）
-- 生成 external credential configuration file
-- 無需下載 Service Account Key
+**特點：**
+- ✅ 適合單機開發環境
+- ✅ 無需管理 Service Account Key
+- ✅ Google 推薦用於本地開發
+- ⚠️ 憑證儲存在本地檔案（需保護檔案權限）
+- ❌ 不適用於生產環境或 CI/CD
 
-**備選方案：Service Account Key（僅測試用）**
-- ⚠️ **不推薦用於生產環境**
-- 僅適用於快速原型測試
-- 必須嚴格保護金鑰檔案（不可 commit 到 git）
-- 定期輪替金鑰（建議 90 天）
+**方案 B：Workload Identity Federation - 需外部 IdP**
+- 適用於：GitHub Actions, AWS, Azure, 自建 OIDC/SAML IdP
+- 不適用於：一般 PC 開發環境（除非有外部 IdP）
+- 範例：GitHub Actions 使用 OIDC token 交換 GCP access token
 
-**本專案採用：方案 A（gcloud ADC）**
+**方案 C：Service Account Key - 不推薦**
+- ⚠️ **僅限測試或 CI/CD 無法使用 WIF 時**
+- 需手動管理金鑰檔案
+- 長期憑證，洩漏風險高
+- 必須定期輪替（建議 90 天）
+
+**為何不在 PC 使用 Workload Identity Federation？**
+- WIF 需要外部身份提供者（GitHub, AWS, Azure, OIDC/SAML）
+- 一般 PC 沒有這些 IdP
+- 設定過於複雜，不適合開發環境
+
+**本專案採用：方案 A（User Account ADC）**
 
 理由：
-- PC 開發環境最簡單的設定方式
+- PC 本地開發環境
+- 設定簡單（一條命令）
 - 無需管理金鑰檔案
-- 符合 Google 安全性最佳實踐
-- 未來可無縫升級到方案 B（Workload Identity Pool）
+- Google 官方推薦用於開發環境
 
 ---
 
@@ -646,10 +657,14 @@ cloud_sync:
 ### GCP 官方文檔
 
 **認證與安全性：**
-- [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation) - 官方 WIF 文檔
-- [Best Practices for Workload Identity Federation](https://cloud.google.com/iam/docs/best-practices-for-using-workload-identity-federation) - WIF 最佳實踐
+- [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials) - 本專案使用的認證方式
+- [Set up ADC for Local Development](https://cloud.google.com/docs/authentication/set-up-adc-local-dev-environment) - 本地開發環境 ADC 設定
+- [Authentication Methods at Google](https://cloud.google.com/docs/authentication) - 各種認證方式比較
 - [Best Practices for Service Account Keys](https://cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys) - 為何避免使用 Service Account Keys
-- [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) - ADC 設定指南
+
+**進階認證（非本專案使用）：**
+- [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation) - 用於 CI/CD 和外部 IdP
+- [Best Practices for Workload Identity Federation](https://cloud.google.com/iam/docs/best-practices-for-using-workload-identity-federation)
 
 **Cloud Storage：**
 - [Cloud Storage 快速入門](https://cloud.google.com/storage/docs/quickstart-console)
@@ -659,14 +674,15 @@ cloud_sync:
 ### Python SDK
 
 - [google-cloud-storage](https://googleapis.dev/python/storage/latest/index.html)
-
-### 安全性文章
-
-- [Enable Keyless Access with Workload Identity Federation](https://cloud.google.com/blog/products/identity-security/enable-keyless-access-to-gcp-with-workload-identity-federation) - Google Cloud Blog
-- [Goodbye, Service Account Keys!](https://medium.com/google-cloud/goodbye-service-account-keys-e009f3b8ffef) - 為何避免使用 Service Account Keys
+- [google-auth User Guide](https://googleapis.dev/python/google-auth/latest/user-guide.html) - ADC 在 Python 中的使用
 
 ---
 
-**文檔版本：** 1.1
-**最後更新：** 2025-12-29（更新為 WIF 最佳實踐）
+**文檔版本：** 1.2
+**最後更新：** 2025-12-29
+**變更歷史：**
+- v1.0: 初始設計（使用 Service Account Key）
+- v1.1: 更新為 Workload Identity Federation（錯誤）
+- v1.2: 更正為 User Account (ADC)，釐清 WIF 適用場景
+
 **下一步：** 建立實作計畫（使用 superpowers:writing-plans）
