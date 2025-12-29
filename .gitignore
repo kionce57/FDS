@@ -20,3 +20,4 @@ data/
 # others
 /.ruff_cache
 /output
+.pytest_cache
