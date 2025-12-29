@@ -32,6 +32,7 @@ fds = "main:main"
 fds-test-video = "scripts.test_with_video:main"
 fds-cleanup = "scripts.cleanup_clips:main"
 fds-web = "src.web.app:main"
+fds-cloud-sync = "scripts.cloud_sync:main"
 
 [build-system]
 requires = ["hatchling"]
