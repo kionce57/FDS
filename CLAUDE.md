@@ -103,10 +103,11 @@ docker compose build --no-cache                        # 強制完整重建
 ### Pipeline Flow (src/core/pipeline.py)
 
 ```
-Camera → Detector → RuleEngine → DelayConfirm → Observers (EventLogger, LineNotifier, ClipRecorder)
-           ↓            ↓              ↓
-      YOLO detect   is_fallen?   State Machine
-                                (NORMAL → SUSPECTED → CONFIRMED)
+Camera → Detector → RuleEngine → DelayConfirm → Observers
+           ↓            ↓              ↓              ↓
+      YOLO detect   is_fallen?   State Machine    EventLogger (SQLite)
+                                                   LineNotifier (LINE API)
+                                                   ClipRecorder → SkeletonExtractor → CloudSync (GCS)
 ```
 
 **關鍵流程:**
@@ -169,6 +170,23 @@ class FallEventObserver(Protocol):
 - `ClipRecorder`: 從 RollingBuffer 提取影片並存檔至 `data/clips/`
 - `Pipeline` 自己也是 Observer，用於更新 clip_path
 
+### Lifecycle Module (src/lifecycle/)
+
+資料生命週期管理：骨架提取、雲端上傳、過期清理。
+
+**元件:**
+- `SkeletonExtractor`: 從影片提取骨架序列，輸出標準化 JSON（COCO17 格式）
+- `CloudSync`: 上傳骨架 JSON 至 GCP Cloud Storage，支援重試與狀態追蹤
+- `ClipCleanup`: 刪除過期影片/骨架，由 `cleanup_scheduler.py` 定時執行
+- `schema/`: JSON Schema 驗證與 dataclass 定義（`SkeletonSequence`, `SkeletonFrame`）
+
+**資料流:**
+```
+ClipRecorder → SkeletonExtractor → CloudSync → GCS
+                    ↓
+              data/skeletons/evt_xxx.json
+```
+
 ### Configuration (src/core/config.py)
 
 **載入順序:**
@@ -196,45 +214,24 @@ class FallEventObserver(Protocol):
 
 **影片測試:** `scripts/test_with_video.py` 使用真實影片驗證，支援視覺化 bbox/skeleton
 
-## Data Structures
+## Key Data Structures
 
-**BBox (src/detection/bbox.py):**
-```python
-@dataclass
-class BBox:
-    x: int
-    y: int
-    width: int
-    height: int
-    confidence: float
-    aspect_ratio: float  # height / width
-```
-
-**Skeleton (src/detection/skeleton.py):**
-```python
-@dataclass
-class Skeleton:
-    keypoints: np.ndarray  # shape (17, 3) - [x, y, visibility]
-    confidence: float
-    torso_angle: float     # 軀幹相對水平的角度（計算自 shoulders/hips）
-```
-
-**FrameData (src/capture/rolling_buffer.py):**
-```python
-@dataclass
-class FrameData:
-    timestamp: float
-    frame: np.ndarray
-    bbox: tuple[int, int, int, int] | None
-```
+| 結構 | 位置 | 用途 |
+|------|------|------|
+| `BBox` | `src/detection/bbox.py` | Bounding box + aspect_ratio |
+| `Skeleton` | `src/detection/skeleton.py` | 17 keypoints + torso_angle |
+| `FrameData` | `src/capture/rolling_buffer.py` | 幀資料（含 timestamp, bbox） |
+| `FallEvent` | `src/events/observer.py` | 跌倒事件 metadata |
+| `SkeletonSequence` | `src/lifecycle/schema/` | 骨架 JSON 序列化格式 |
 
 ## Important Notes
 
 - **Camera source:** 開發時使用影片測試，正式環境改為 camera index 或 RTSP URL
 - **Model files:** 首次執行會自動下載 `yolov8n.pt` / `yolov8n-pose.pt`
-- **Data directory:** `data/` 由 gitignore，包含 `fds.db` (SQLite) 和 `clips/` (影片)
-- **Lifecycle:** `lifecycle.clip_retention_days=7` 表示影片保留 7 天（需實作清理邏輯）
+- **Data directory:** `data/` 由 gitignore，包含 `fds.db` (SQLite)、`clips/` (影片)、`skeletons/` (骨架 JSON)
+- **Cleanup:** `lifecycle.clip_retention_days=7` 控制影片保留天數，使用 `fds-cleanup` 執行清理
 - **LINE Token:** 必須在 `.env` 設定 `LINE_NOTIFY_TOKEN`，否則通知會失敗（但不會 crash）
+- **GCS Bucket:** Cloud Sync 需設定 `GCS_BUCKET_NAME` 環境變數
 
 ## CLI Entry Points (pyproject.toml)
 
