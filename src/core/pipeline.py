@@ -14,6 +14,7 @@ from src.events.clip_recorder import ClipRecorder
 from src.events.event_logger import EventLogger
 from src.events.notifier import LineNotifier
 from src.events.observer import FallEvent
+from src.lifecycle.skeleton_collector import SkeletonCollector
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class Pipeline:
         self.camera = Camera(
             source=config.camera.source,
             fps=config.camera.fps,
-            resolution=tuple(config.camera.resolution),
+            resolution=(config.camera.resolution[0], config.camera.resolution[1]),
         )
 
         self.detector = Detector(
@@ -58,9 +59,28 @@ class Pipeline:
         self.delay_confirm.add_observer(self.notifier)
         self.delay_confirm.add_observer(self)
 
+        # SkeletonCollector for auto skeleton extraction
+        self.skeleton_collector: SkeletonCollector | None = None
+        if config.lifecycle.auto_skeleton_extract:
+            self.skeleton_collector = SkeletonCollector(
+                rolling_buffer=self.rolling_buffer,
+                output_dir=config.lifecycle.skeleton_output_dir,
+                enabled=True,
+                clip_before_sec=config.recording.clip_before_sec,
+                clip_after_sec=config.recording.clip_after_sec,
+                fps=config.camera.fps,
+            )
+            self.delay_confirm.add_suspected_observer(self.skeleton_collector)
+
         self._current_bbox: BBox | None = None
 
     def on_fall_confirmed(self, event: FallEvent) -> None:
+        # Notify skeleton_collector to extract with confirmed outcome
+        if self.skeleton_collector and self.delay_confirm.current_suspected:
+            self.skeleton_collector.on_fall_confirmed_update(
+                self.delay_confirm.current_suspected
+            )
+
         frames = self.rolling_buffer.get_clip(
             event_time=event.confirmed_at,
             before_sec=self.config.recording.clip_before_sec,
@@ -121,3 +141,5 @@ class Pipeline:
         finally:
             self.camera.release()
             self.event_logger.close()
+            if self.skeleton_collector:
+                self.skeleton_collector.shutdown()
