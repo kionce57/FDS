@@ -25,7 +25,9 @@ def test_config(tmp_path):
             fall_threshold=1.3, delay_sec=0.1, same_event_window=60.0, re_notify_interval=120.0
         ),
         recording=RecordingConfig(buffer_seconds=2, clip_before_sec=1, clip_after_sec=1),
-        notification=NotificationConfig(line_token="test", enabled=False),
+        notification=NotificationConfig(
+            line_channel_access_token="test", line_user_id="U123", enabled=False
+        ),
         lifecycle=LifecycleConfig(clip_retention_days=7, skeleton_retention_days=30),
         cloud_sync=CloudSyncConfig(
             enabled=False,

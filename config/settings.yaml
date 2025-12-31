@@ -23,7 +23,8 @@ recording:
   clip_after_sec: 5
 
 notification:
-  line_token: "${LINE_NOTIFY_TOKEN}"
+  line_channel_access_token: "${LINE_BOT_CHANNEL_ACCESS_TOKEN}"
+  line_user_id: "${LINE_BOT_USER_ID}"
   enabled: true
 
 lifecycle:

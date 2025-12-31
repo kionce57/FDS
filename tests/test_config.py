@@ -28,7 +28,8 @@ recording:
   clip_after_sec: 5
 
 notification:
-  line_token: "${LINE_NOTIFY_TOKEN}"
+  line_channel_access_token: "${LINE_BOT_CHANNEL_ACCESS_TOKEN}"
+  line_user_id: "${LINE_BOT_USER_ID}"
   enabled: true
 
 lifecycle:
@@ -53,9 +54,11 @@ cloud_sync:
         assert config.analysis.fall_threshold == 1.3
 
     def test_env_variable_substitution(self, config_file, monkeypatch):
-        monkeypatch.setenv("LINE_NOTIFY_TOKEN", "test_token_123")
+        monkeypatch.setenv("LINE_BOT_CHANNEL_ACCESS_TOKEN", "test_token_123")
+        monkeypatch.setenv("LINE_BOT_USER_ID", "U1234567890")
         config = load_config(str(config_file))
-        assert config.notification.line_token == "test_token_123"
+        assert config.notification.line_channel_access_token == "test_token_123"
+        assert config.notification.line_user_id == "U1234567890"
 
     def test_camera_config(self, config_file):
         config = load_config(str(config_file))
@@ -104,7 +107,8 @@ recording:
   clip_after_sec: 5
 
 notification:
-  line_token: "test_token"
+  line_channel_access_token: "test_token"
+  line_user_id: "U1234567890"
   enabled: true
 
 lifecycle:

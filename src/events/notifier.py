@@ -10,10 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 class LineNotifier(FallEventObserver):
-    API_URL = "https://notify-api.line.me/api/notify"
+    API_URL = "https://api.line.me/v2/bot/message/push"
 
-    def __init__(self, token: str, enabled: bool = True):
-        self.token = token
+    def __init__(self, channel_access_token: str, user_id: str, enabled: bool = True):
+        self.channel_access_token = channel_access_token
+        self.user_id = user_id
         self.enabled = enabled
         self._pending_queue: deque[FallEvent] = deque()
 
@@ -42,8 +43,14 @@ class LineNotifier(FallEventObserver):
         try:
             response = requests.post(
                 self.API_URL,
-                headers={"Authorization": f"Bearer {self.token}"},
-                data={"message": message},
+                headers={
+                    "Authorization": f"Bearer {self.channel_access_token}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "to": self.user_id,
+                    "messages": [{"type": "text", "text": message}],
+                },
                 timeout=10,
             )
             if response.status_code == 200:
@@ -66,8 +73,14 @@ class LineNotifier(FallEventObserver):
             try:
                 response = requests.post(
                     self.API_URL,
-                    headers={"Authorization": f"Bearer {self.token}"},
-                    data={"message": message},
+                    headers={
+                        "Authorization": f"Bearer {self.channel_access_token}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "to": self.user_id,
+                        "messages": [{"type": "text", "text": message}],
+                    },
                     timeout=10,
                 )
                 if response.status_code == 200:
