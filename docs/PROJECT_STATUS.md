@@ -1,7 +1,7 @@
 # FDS 專案狀態文檔
 
-> 最後更新：2025-12-29
-> 更新者：Claude Sonnet 4.5 (Cloud Sync Implementation Complete)
+> 最後更新：2025-12-31
+> 更新者：Claude Opus 4.5 (Skeleton Observer Extension Complete)
 
 本文檔提供完整的專案狀態，供後續開發者快速了解並繼續開發。
 
@@ -294,6 +294,60 @@ src/
 - **設計文檔:** `docs/plans/2025-12-29-cloud-sync-design.md`
 - **實作計畫:** `docs/plans/2025-12-29-cloud-sync-implementation.md`
 
+#### Task 20: Skeleton Observer Extension ✅
+- **日期：** 2025-12-31
+- **狀態：** ✅ 已完成
+- **Commits (7 個):**
+  1. `c5e062a` - feat(observer): add SuspectedEvent and SuspectedEventObserver protocol
+  2. `480b13b` - feat(delay_confirm): add suspected event notifications
+  3. `68833b0` - feat(skeleton_extractor): add extract_from_frames method
+  4. `2368258` - feat(lifecycle): add SkeletonCollector for async skeleton extraction
+  5. `27b6fbc` - feat(config): add auto_skeleton_extract option
+  6. `c7b6a92` - feat(pipeline): integrate SkeletonCollector for auto skeleton extraction
+  7. `a16b903` - docs: add SkeletonCollector documentation
+
+- **核心功能:**
+  - ✅ 擴展 Observer Pattern 支援 SUSPECTED 階段
+  - ✅ 新增 `SuspectedEvent` 與 `SuspectedEventObserver` 協議
+  - ✅ DelayConfirm 狀態機新增 suspected 事件通知
+  - ✅ SkeletonExtractor 新增 `extract_from_frames()` 方法
+  - ✅ SkeletonCollector 非同步骨架提取器
+  - ✅ 自動標記 outcome（confirmed/cleared）
+
+- **事件流程:**
+  ```
+  SUSPECTED → 記錄事件（不提取）
+      │
+      ├─→ CONFIRMED → 提取骨架 → sus_xxx_confirmed.json（正樣本）
+      │
+      └─→ CLEARED → 提取骨架 → sus_xxx_cleared.json（負樣本）
+  ```
+
+- **新增檔案:**
+  ```
+  src/lifecycle/skeleton_collector.py    # 骨架收集器（127 行）
+  tests/lifecycle/test_skeleton_collector.py  # 測試（4 個）
+  ```
+
+- **修改檔案:**
+  - `src/events/observer.py` - 新增 SuspectedEvent, SuspectedEventObserver
+  - `src/analysis/delay_confirm.py` - 新增 suspected observer 通知
+  - `src/lifecycle/skeleton_extractor.py` - 新增 extract_from_frames()
+  - `src/core/config.py` - 新增 auto_skeleton_extract, skeleton_output_dir
+  - `src/core/pipeline.py` - 整合 SkeletonCollector
+  - `config/settings.yaml` - 新增 skeleton 設定
+  - `CLAUDE.md` - 新增 SkeletonCollector 文檔
+
+- **設定範例:**
+  ```yaml
+  lifecycle:
+    auto_skeleton_extract: true      # 啟用自動骨架提取
+    skeleton_output_dir: "data/skeletons"
+  ```
+
+- **測試結果:** 206 個測試（新增 10 個），202 passed, 4 failed（pre-existing GCP 問題）
+- **設計文檔:** `docs/plans/2025-12-31-skeleton-observer-extension.md`
+
 ---
 
 ## 🔄 待辦事項（按優先級）
@@ -310,6 +364,7 @@ src/
 - ✅ Testing Documentation
 - ✅ Web Dashboard
 - ✅ Cloud Sync
+- ✅ Skeleton Observer Extension（2025-12-31 新增）
 
 ### Phase 3 候選功能（規劃中）
 
@@ -407,12 +462,17 @@ src/
 - `test_schema.py` - 14 tests ✅
 - `test_formats.py` - 14 tests ✅
 - `test_validator.py` - 28 tests ✅
-- `test_skeleton_extractor.py` - 6 tests ✅
+- `test_skeleton_extractor.py` - 8 tests ✅（新增 2 個 extract_from_frames 測試）
 - `test_clip_cleanup.py` - 10 tests ✅
 - `test_cleanup_scheduler.py` - 9 tests ✅
 - `test_cloud_sync.py` - 12 tests ✅
+- `test_skeleton_collector.py` - 4 tests ✅（新增）
 
-**總計：** 93 tests, 93 passed ✅
+### Observer/Analysis 模組測試
+- `test_observer.py` - 6 tests ✅（新增 2 個 SuspectedEvent 測試）
+- `test_delay_confirm.py` - 14 tests ✅（新增 4 個 suspected observer 測試）
+
+**總計：** 206 tests, 202 passed, 4 failed（pre-existing GCP 問題）
 
 ### 整合測試
 - 真實影片骨架提取 ✅
@@ -463,9 +523,11 @@ bash scripts/quick_test.sh
 ```yaml
 lifecycle:
   clip_retention_days: 7       # 影片保留天數
-  skeleton_retention_days: 30  # 骨架 JSON 保留天數（未使用）
+  skeleton_retention_days: 30  # 骨架 JSON 保留天數
   cleanup_enabled: true        # 啟用自動清理排程
   cleanup_schedule_hours: 24   # 清理排程間隔（小時）
+  auto_skeleton_extract: true  # 啟用自動骨架提取（新增）
+  skeleton_output_dir: "data/skeletons"  # 骨架輸出目錄（新增）
 
 camera:
   source: 0                    # 攝影機索引或 RTSP URL
@@ -545,6 +607,7 @@ fds-cloud-sync = "scripts.cloud_sync:main"
 - **Phase 1 實作：** `docs/plans/2025-12-28-fds-phase1-implementation.md`
 - **Cloud Sync 設計：** `docs/plans/2025-12-29-cloud-sync-design.md`
 - **Cloud Sync 實作：** `docs/plans/2025-12-29-cloud-sync-implementation.md`
+- **Skeleton Observer 實作：** `docs/plans/archive/2025-12-31-skeleton-observer-extension.md`
 - **專案說明：** `README.md`
 - **開發指南：** `CLAUDE.md`
 - **測試指南：** `docs/TESTING_ON_WINDOWS.md`
@@ -578,6 +641,13 @@ fds-cloud-sync = "scripts.cloud_sync:main"
 - `scripts/cloud_sync.py` (CLI 介面)
 - `src/events/event_logger.py` (資料庫狀態追蹤)
 - `config/settings.yaml` (Cloud Sync 設定)
+
+### 如果要修改骨架收集（Skeleton Collection）
+- `src/lifecycle/skeleton_collector.py` - SkeletonCollector 主類別
+- `src/events/observer.py` - SuspectedEvent, SuspectedEventObserver
+- `src/analysis/delay_confirm.py` - suspected 事件通知邏輯
+- `src/core/pipeline.py` - Pipeline 整合點
+- `config/settings.yaml` - `lifecycle.auto_skeleton_extract` 設定
 
 ---
 

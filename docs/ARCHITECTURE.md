@@ -110,15 +110,16 @@ C4Component
         Component(camera, "Camera", "capture/camera.py", "攝影機串流擷取")
         Component(buffer, "RollingBuffer", "capture/rolling_buffer.py", "10秒環形緩衝區")
         Component(detector, "Detector", "detection/detector.py", "YOLOv8 人體偵測")
-        Component(skeleton, "SkeletonExtractor", "detection/skeleton.py", "骨架關鍵點提取")
+        Component(skeleton, "SkeletonExtractor", "lifecycle/skeleton_extractor.py", "骨架序列提取")
         Component(rule, "RuleEngine", "analysis/rule_engine.py", "長寬比規則判斷")
         Component(delay, "DelayConfirm", "analysis/delay_confirm.py", "3秒延遲確認狀態機")
         Component(logger, "EventLogger", "events/event_logger.py", "SQLite 事件記錄")
         Component(recorder, "ClipRecorder", "events/clip_recorder.py", "MP4 影片儲存")
         Component(notifier, "LineNotifier", "events/notifier.py", "LINE API 通知")
+        Component(collector, "SkeletonCollector", "lifecycle/skeleton_collector.py", "非同步骨架收集")
         Component(pipeline, "Pipeline", "core/pipeline.py", "主流程協調器")
     }
-    
+
     Rel(pipeline, camera, "read()")
     Rel(pipeline, buffer, "push()")
     Rel(pipeline, detector, "detect()")
@@ -127,7 +128,11 @@ C4Component
     Rel(delay, logger, "on_fall_confirmed()")
     Rel(delay, notifier, "on_fall_confirmed()")
     Rel(delay, recorder, "on_fall_confirmed()")
+    Rel(delay, collector, "on_fall_suspected()")
+    Rel(delay, collector, "on_suspicion_cleared()")
     Rel(buffer, recorder, "get_clip()")
+    Rel(buffer, collector, "get_clip()")
+    Rel(collector, skeleton, "extract_from_frames()")
 ```
 
 **元件分層說明：**
@@ -138,6 +143,7 @@ C4Component
 | **Processing Layer** | `detection/` | AI 模型推論 |
 | **Analysis Layer** | `analysis/` | 規則判斷與狀態機 |
 | **Output Layer** | `events/` | 事件處理與通知 |
+| **Lifecycle Layer** | `lifecycle/` | 骨架提取、雲端同步、資料清理 |
 | **Orchestration** | `core/` | 流程整合 |
 
 ---
@@ -186,6 +192,8 @@ sequenceDiagram
 
 ### Observer Pattern 事件通知
 
+#### FallEventObserver（跌倒確認通知）
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -196,7 +204,7 @@ sequenceDiagram
     participant Pipeline
 
     DC->>DC: _confirm_fall() 建立 FallEvent
-    
+
     par Observer 1
         DC->>EL: on_fall_confirmed(event)
         EL->>EL: INSERT INTO events
@@ -209,10 +217,46 @@ sequenceDiagram
     end
 ```
 
+#### SuspectedEventObserver（疑似跌倒通知 - 骨架收集）
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant DC as DelayConfirm
+    participant SC as SkeletonCollector
+    participant Buf as RollingBuffer
+    participant SE as SkeletonExtractor
+
+    Note over DC: NORMAL → SUSPECTED
+    DC->>DC: 建立 SuspectedEvent(pending)
+    DC->>SC: on_fall_suspected(event)
+    SC->>SC: 記錄至 pending_events
+
+    alt 持續 3 秒 → CONFIRMED
+        DC->>DC: event.outcome = "confirmed"
+        DC->>SC: on_fall_confirmed_update(event)
+        SC->>Buf: get_clip(before=5s, after=5s)
+        Buf-->>SC: List[FrameData]
+        SC->>SE: extract_from_frames(frames)
+        SE-->>SC: SkeletonSequence
+        SC->>SC: 儲存 sus_xxx_confirmed.json
+    else is_fallen=false → NORMAL
+        DC->>DC: event.outcome = "cleared"
+        DC->>SC: on_suspicion_cleared(event)
+        SC->>Buf: get_clip(before=5s, after=5s)
+        Buf-->>SC: List[FrameData]
+        SC->>SE: extract_from_frames(frames)
+        SE-->>SC: SkeletonSequence
+        SC->>SC: 儲存 sus_xxx_cleared.json
+    end
+```
+
 **設計優勢：**
 - 新增 Observer（如 Email 通知）無需修改 `DelayConfirm`
 - 各 Observer 獨立運作，不互相影響
 - 符合 **開放封閉原則 (OCP)**
+- **雙層 Observer**：`FallEventObserver` 處理確認事件，`SuspectedEventObserver` 處理疑似階段
+- **標註式訓練資料**：輸出檔名自帶標籤（confirmed/cleared），便於機器學習
 
 ---
 
@@ -221,24 +265,34 @@ sequenceDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> NORMAL
-    
+
     NORMAL --> SUSPECTED : is_fallen = true
     SUSPECTED --> NORMAL : is_fallen = false<br/>(reset)
     SUSPECTED --> CONFIRMED : 持續 3 秒
     CONFIRMED --> NORMAL : is_fallen = false<br/>(recover)
     CONFIRMED --> CONFIRMED : 每 120 秒<br/>re-notify
-    
-    note right of SUSPECTED : suspected_since<br/>= current_time
-    note right of CONFIRMED : 觸發 on_fall_confirmed()
+
+    note right of NORMAL : 預設狀態
+    note right of SUSPECTED : on_fall_suspected()<br/>→ SkeletonCollector 記錄
+    note right of CONFIRMED : on_fall_confirmed()<br/>→ 事件記錄/通知/錄影
 ```
 
 **狀態說明：**
 
-| 狀態 | 說明 | 觸發條件 |
-|------|------|----------|
-| `NORMAL` | 正常站立 | 預設/恢復 |
-| `SUSPECTED` | 疑似跌倒 | 長寬比 < 1.3 |
-| `CONFIRMED` | 確認跌倒 | 疑似狀態持續 3 秒 |
+| 狀態 | 說明 | 觸發條件 | Observer 通知 |
+|------|------|----------|---------------|
+| `NORMAL` | 正常站立 | 預設/恢復 | - |
+| `SUSPECTED` | 疑似跌倒 | 長寬比 < 1.3 | `on_fall_suspected()` |
+| `CONFIRMED` | 確認跌倒 | 疑似狀態持續 3 秒 | `on_fall_confirmed()` |
+
+**狀態轉換時的 Observer 通知：**
+
+| 轉換 | 通知方法 | 接收者 |
+|------|----------|--------|
+| NORMAL → SUSPECTED | `on_fall_suspected(SuspectedEvent)` | `SkeletonCollector` |
+| SUSPECTED → NORMAL | `on_suspicion_cleared(SuspectedEvent)` | `SkeletonCollector` |
+| SUSPECTED → CONFIRMED | `on_fall_confirmed(FallEvent)` | `EventLogger`, `LineNotifier`, `Pipeline` |
+| CONFIRMED → NORMAL | `on_fall_recovered(FallEvent)` | `EventLogger`, `LineNotifier`, `Pipeline` |
 
 ---
 
@@ -284,37 +338,41 @@ flowchart LR
 ### 模組職責與邊界
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         src/                                     │
-├─────────────┬─────────────┬─────────────┬─────────────┬─────────┤
-│   capture/  │  detection/ │  analysis/  │   events/   │  core/  │
-├─────────────┼─────────────┼─────────────┼─────────────┼─────────┤
-│ Camera      │ Detector    │ RuleEngine  │ Observer    │ Config  │
-│ RollingBuf  │ BBox        │ DelayConf   │ EventLogger │ Pipeline│
-│             │ Skeleton    │             │ Notifier    │         │
-│             │             │             │ ClipRecord  │         │
-├─────────────┼─────────────┼─────────────┼─────────────┼─────────┤
-│ 影像擷取    │ AI推論      │ 規則/狀態機 │ 事件處理    │ 整合    │
-│ 資料緩衝    │ 特徵提取    │             │ 對外通知    │ 設定    │
-└─────────────┴─────────────┴─────────────┴─────────────┴─────────┘
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                                     src/                                          │
+├─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬────────────┤
+│   capture/  │  detection/ │  analysis/  │   events/   │  lifecycle/ │    core/   │
+├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼────────────┤
+│ Camera      │ Detector    │ RuleEngine  │ Observer    │ Skeleton    │ Config     │
+│ RollingBuf  │ BBox        │ DelayConf   │ EventLogger │ Extractor   │ Pipeline   │
+│             │ Skeleton    │             │ Notifier    │ Collector   │            │
+│             │             │             │ ClipRecord  │ CloudSync   │            │
+│             │             │             │             │ ClipCleanup │            │
+├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼────────────┤
+│ 影像擷取    │ AI推論      │ 規則/狀態機 │ 事件處理    │ 資料生命    │ 整合       │
+│ 資料緩衝    │ 特徵提取    │             │ 對外通知    │ 週期管理    │ 設定       │
+└─────────────┴─────────────┴─────────────┴─────────────┴─────────────┴────────────┘
 
-                          ↓ 依賴方向 ↓
-                     
-     capture ← detection ← analysis ← events ← core(Pipeline)
+                               ↓ 依賴方向 ↓
+
+     capture ← detection ← analysis ← events ← lifecycle ← core(Pipeline)
 ```
 
 **模組依賴原則：**
 - 箭頭方向表示「被依賴」
 - `Pipeline` 是最外層，依賴所有其他模組
 - `capture/` 是最內層，不依賴其他業務模組
+- `lifecycle/` 依賴 `capture/`（RollingBuffer）和 `detection/`（PoseDetector）
 
 ---
 
 ## 設計模式
 
-### 1. Observer Pattern
+### 1. Observer Pattern（雙層設計）
 
-**位置**：[observer.py](file:///home/kionc9986/Projects/FDS/src/events/observer.py)
+**位置**：[observer.py](mdc:src/events/observer.py)
+
+#### FallEventObserver（確認階段）
 
 ```python
 class FallEventObserver(Protocol):
@@ -324,11 +382,26 @@ class FallEventObserver(Protocol):
 
 **應用**：`DelayConfirm` 通知 `EventLogger`, `LineNotifier`, `Pipeline`
 
+#### SuspectedEventObserver（疑似階段）
+
+```python
+class SuspectedEventObserver(Protocol):
+    def on_fall_suspected(self, event: SuspectedEvent) -> None: ...
+    def on_suspicion_cleared(self, event: SuspectedEvent) -> None: ...
+```
+
+**應用**：`DelayConfirm` 通知 `SkeletonCollector` 進行骨架收集
+
+**設計優勢**：
+- 雙層 Observer 分離「疑似」與「確認」階段處理
+- `SkeletonCollector` 可在 SUSPECTED 階段提前記錄事件，待結果確定後提取骨架
+- 輸出檔名自帶標籤（`_confirmed.json` / `_cleared.json`），便於機器學習訓練
+
 ---
 
 ### 2. State Machine Pattern
 
-**位置**：[delay_confirm.py](file:///home/kionc9986/Projects/FDS/src/analysis/delay_confirm.py)
+**位置**：[delay_confirm.py](mdc:src/analysis/delay_confirm.py)
 
 ```python
 class FallState(Enum):
@@ -337,13 +410,13 @@ class FallState(Enum):
     CONFIRMED = "confirmed"
 ```
 
-**應用**：管理跌倒偵測的狀態轉換邏輯
+**應用**：管理跌倒偵測的狀態轉換邏輯，並在狀態轉換時觸發對應的 Observer 通知
 
 ---
 
 ### 3. Pipeline Pattern
 
-**位置**：[pipeline.py](file:///home/kionc9986/Projects/FDS/src/core/pipeline.py)
+**位置**：[pipeline.py](mdc:src/core/pipeline.py)
 
 ```python
 def process_frame(self, frame, current_time) -> FallState:
@@ -366,21 +439,23 @@ graph TD
     B --> C[3. 追蹤 Pipeline.run]
     C --> D[4. 深入 DelayConfirm 狀態機]
     D --> E[5. 理解 Observer 通知機制]
-    E --> F[6. 探索 Web 儀表板]
-    
+    E --> F[6. 探索 SkeletonCollector]
+    F --> G[7. 探索 Web 儀表板]
+
     style A fill:#e1f5fe
-    style F fill:#c8e6c9
+    style G fill:#c8e6c9
 ```
 
 | 步驟 | 檔案 | 學習重點 |
 |------|------|----------|
-| 1 | [README.md](file:///home/kionc9986/Projects/FDS/README.md) | 功能概覽、快速開始 |
+| 1 | [README.md](mdc:README.md) | 功能概覽、快速開始 |
 | 2 | 本文件 | 系統邊界、外部依賴 |
-| 3 | [pipeline.py](file:///home/kionc9986/Projects/FDS/src/core/pipeline.py) | 主流程、元件串接 |
-| 4 | [delay_confirm.py](file:///home/kionc9986/Projects/FDS/src/analysis/delay_confirm.py) | 狀態機設計 |
-| 5 | [observer.py](file:///home/kionc9986/Projects/FDS/src/events/observer.py) | 設計模式應用 |
-| 6 | [pages.py](file:///home/kionc9986/Projects/FDS/src/web/routes/pages.py) | Web 整合 |
+| 3 | [pipeline.py](mdc:src/core/pipeline.py) | 主流程、元件串接 |
+| 4 | [delay_confirm.py](mdc:src/analysis/delay_confirm.py) | 狀態機設計、雙層 Observer |
+| 5 | [observer.py](mdc:src/events/observer.py) | 設計模式應用 |
+| 6 | [skeleton_collector.py](mdc:src/lifecycle/skeleton_collector.py) | 骨架收集機制 |
+| 7 | [pages.py](mdc:src/web/routes/pages.py) | Web 整合 |
 
 ---
 
-*文件產生日期：2025-12-29*
+*文件更新日期：2025-12-31*
