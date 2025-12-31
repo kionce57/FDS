@@ -31,6 +31,8 @@ lifecycle:
   skeleton_retention_days: 30
   cleanup_enabled: true
   cleanup_schedule_hours: 24
+  auto_skeleton_extract: true
+  skeleton_output_dir: "data/skeletons"
 
 cloud_sync:
   enabled: true

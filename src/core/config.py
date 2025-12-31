@@ -50,6 +50,8 @@ class LifecycleConfig:
     skeleton_retention_days: int
     cleanup_enabled: bool = True
     cleanup_schedule_hours: int = 24
+    auto_skeleton_extract: bool = False
+    skeleton_output_dir: str = "data/skeletons"
 
 
 @dataclass
