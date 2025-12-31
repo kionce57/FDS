@@ -253,9 +253,7 @@ class SkeletonExtractor:
             duration_sec=duration_sec,
             fps=int(fps),
             total_frames=len(frames),
-            extractor=ExtractorMetadata(
-                engine="yolov8", model=self.model_path, version="8.0.0"
-            ),
+            extractor=ExtractorMetadata(engine="yolov8", model=self.model_path, version="8.0.0"),
         )
 
         sequence = []

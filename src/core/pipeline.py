@@ -77,9 +77,7 @@ class Pipeline:
     def on_fall_confirmed(self, event: FallEvent) -> None:
         # Notify skeleton_collector to extract with confirmed outcome
         if self.skeleton_collector and self.delay_confirm.current_suspected:
-            self.skeleton_collector.on_fall_confirmed_update(
-                self.delay_confirm.current_suspected
-            )
+            self.skeleton_collector.on_fall_confirmed_update(self.delay_confirm.current_suspected)
 
         frames = self.rolling_buffer.get_clip(
             event_time=event.confirmed_at,

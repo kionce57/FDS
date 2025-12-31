@@ -1,6 +1,4 @@
 import numpy as np
-import pytest
-from unittest.mock import MagicMock, patch
 
 from src.capture.rolling_buffer import FrameData, RollingBuffer
 from src.events.observer import SuspectedEvent

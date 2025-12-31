@@ -187,6 +187,34 @@ ClipRecorder → SkeletonExtractor → CloudSync → GCS
               data/skeletons/evt_xxx.json
 ```
 
+### Skeleton Collection (src/lifecycle/skeleton_collector.py)
+
+自動骨架收集，訂閱 SUSPECTED 事件，於 outcome 確定後提取：
+
+**事件流程:**
+```
+SUSPECTED → 記錄事件（不提取）
+    │
+    ├─→ CONFIRMED → 提取骨架 (label=confirmed, 正樣本)
+    │
+    └─→ CLEARED → 提取骨架 (label=cleared, 負樣本)
+```
+
+**時間範圍:**
+- t-n (事件前): 保證完整 ✅
+- t+n (事件後): 取得可用部分
+
+**輸出檔案:**
+- `data/skeletons/sus_xxx_confirmed.json` - 確認跌倒（正樣本）
+- `data/skeletons/sus_xxx_cleared.json` - 疑似但未確認（負樣本）
+
+**設定:**
+```yaml
+lifecycle:
+  auto_skeleton_extract: true  # 啟用自動骨架提取
+  skeleton_output_dir: "data/skeletons"
+```
+
 ### Configuration (src/core/config.py)
 
 **載入順序:**
@@ -222,6 +250,7 @@ ClipRecorder → SkeletonExtractor → CloudSync → GCS
 | `Skeleton` | `src/detection/skeleton.py` | 17 keypoints + torso_angle |
 | `FrameData` | `src/capture/rolling_buffer.py` | 幀資料（含 timestamp, bbox） |
 | `FallEvent` | `src/events/observer.py` | 跌倒事件 metadata |
+| `SuspectedEvent` | `src/events/observer.py` | 疑似跌倒事件（含 outcome 標籤） |
 | `SkeletonSequence` | `src/lifecycle/schema/` | 骨架 JSON 序列化格式 |
 
 ## Important Notes
