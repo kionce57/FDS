@@ -1,4 +1,4 @@
-from src.events.observer import FallEvent
+from src.events.observer import FallEvent, SuspectedEvent
 
 
 class MockObserver:
@@ -45,3 +45,24 @@ class TestMockObserver:
         event = FallEvent("evt_1", 100.0, 100.0, 1)
         observer.on_fall_recovered(event)
         assert len(observer.recovered_events) == 1
+
+
+class TestSuspectedEvent:
+    def test_suspected_event_creation(self):
+        event = SuspectedEvent(
+            suspected_id="sus_1234567890",
+            suspected_at=1234567890.0,
+        )
+        assert event.suspected_id == "sus_1234567890"
+        assert event.suspected_at == 1234567890.0
+        assert event.outcome == "pending"
+
+    def test_suspected_event_with_outcome(self):
+        event = SuspectedEvent(
+            suspected_id="sus_1234567890",
+            suspected_at=1234567890.0,
+            outcome="confirmed",
+            outcome_at=1234567893.0,
+        )
+        assert event.outcome == "confirmed"
+        assert event.outcome_at == 1234567893.0
