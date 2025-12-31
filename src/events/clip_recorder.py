@@ -11,7 +11,7 @@ class ClipRecorder:
         self,
         output_dir: str = "data/clips",
         fps: int = 15,
-        codec: str = "mp4v",
+        codec: str = "avc1",
     ):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
