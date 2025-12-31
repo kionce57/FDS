@@ -7,7 +7,11 @@ from src.events.observer import FallEvent
 class TestLineNotifier:
     @pytest.fixture
     def notifier(self):
-        return LineNotifier(token="test_token", enabled=True)
+        return LineNotifier(
+            channel_access_token="test_channel_access_token",
+            user_id="U1234567890abcdefghijklmnopqrstuvw",
+            enabled=True,
+        )
 
     @pytest.fixture
     def sample_event(self):
@@ -19,7 +23,7 @@ class TestLineNotifier:
         )
 
     def test_notifier_disabled(self, sample_event):
-        notifier = LineNotifier(token="test", enabled=False)
+        notifier = LineNotifier(channel_access_token="test", user_id="U123", enabled=False)
         with patch("requests.post") as mock_post:
             notifier.on_fall_confirmed(sample_event)
             mock_post.assert_not_called()
@@ -36,8 +40,13 @@ class TestLineNotifier:
             notifier.on_fall_confirmed(sample_event)
 
             call_args = mock_post.call_args
-            message = call_args.kwargs.get("data", {}).get("message", "")
-            assert "evt_123" in message or "跌倒" in message
+            json_body = call_args.kwargs.get("json", {})
+
+            # 驗證 JSON 結構
+            assert json_body["to"] == "U1234567890abcdefghijklmnopqrstuvw"
+            assert isinstance(json_body["messages"], list)
+            assert json_body["messages"][0]["type"] == "text"
+            assert "跌倒" in json_body["messages"][0]["text"]
 
     def test_notification_failure_adds_to_queue(self, notifier, sample_event):
         with patch("requests.post") as mock_post:
@@ -61,5 +70,10 @@ class TestLineNotifier:
             notifier.on_fall_recovered(sample_event)
 
             call_args = mock_post.call_args
-            message = call_args.kwargs.get("data", {}).get("message", "")
-            assert "恢復" in message or "recovered" in message.lower()
+            json_body = call_args.kwargs.get("json", {})
+
+            # 驗證 JSON 結構
+            assert json_body["to"] == "U1234567890abcdefghijklmnopqrstuvw"
+            assert isinstance(json_body["messages"], list)
+            message_text = json_body["messages"][0]["text"]
+            assert "恢復" in message_text or "recovered" in message_text.lower()

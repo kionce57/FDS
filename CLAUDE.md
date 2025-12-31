@@ -223,8 +223,8 @@ lifecycle:
 3. 建立強型別 dataclass (`Config`, `CameraConfig`, ...)
 
 **環境變數處理:**
-- `.env` 中定義 `LINE_NOTIFY_TOKEN`
-- `settings.yaml` 中使用 `line_token: "${LINE_NOTIFY_TOKEN}"` 引用
+- `.env` 中定義 `LINE_BOT_CHANNEL_ACCESS_TOKEN` 與 `LINE_BOT_USER_ID`
+- `settings.yaml` 中使用 `line_channel_access_token: "${LINE_BOT_CHANNEL_ACCESS_TOKEN}"` 引用
 - 支援任意深度的嵌套字典替換
 
 **關鍵參數 (config/settings.yaml):**
@@ -233,6 +233,9 @@ lifecycle:
 - `analysis.delay_sec`: 3.0 (延遲確認秒數)
 - `recording.buffer_seconds`: 10 (環形緩衝總秒數)
 - `recording.clip_before_sec/after_sec`: 各 5 秒（跌倒前後錄影範圍）
+- `notification.line_channel_access_token`: LINE Bot Channel Access Token (from env)
+- `notification.line_user_id`: 推播接收者的 LINE User ID (from env)
+- `notification.enabled`: true/false（啟用/停用通知）
 
 ## Testing Strategy
 
@@ -259,7 +262,11 @@ lifecycle:
 - **Model files:** 首次執行會自動下載 `yolov8n.pt` / `yolov8n-pose.pt`
 - **Data directory:** `data/` 由 gitignore，包含 `fds.db` (SQLite)、`clips/` (影片)、`skeletons/` (骨架 JSON)
 - **Cleanup:** `lifecycle.clip_retention_days=7` 控制影片保留天數，使用 `fds-cleanup` 執行清理
-- **LINE Token:** 必須在 `.env` 設定 `LINE_NOTIFY_TOKEN`，否則通知會失敗（但不會 crash）
+- **LINE Bot Configuration:**
+  - 必須在 `.env` 設定 `LINE_BOT_CHANNEL_ACCESS_TOKEN` 與 `LINE_BOT_USER_ID`
+  - Token 取得：LINE Developers Console → 建立 Messaging API Channel → 複製 Channel Access Token
+  - User ID 取得：用戶傳訊給 Bot 後，從 webhook 事件取得 `event.source.userId`
+  - 配置缺失時通知會失敗（但不會 crash Pipeline）
 - **GCS Bucket:** Cloud Sync 需設定 `GCS_BUCKET_NAME` 環境變數
 
 ## CLI Entry Points (pyproject.toml)

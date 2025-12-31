@@ -51,7 +51,8 @@ class Pipeline:
         self.event_logger = EventLogger(db_path=db_path)
         self.clip_recorder = ClipRecorder(fps=config.camera.fps)
         self.notifier = LineNotifier(
-            token=config.notification.line_token,
+            channel_access_token=config.notification.line_channel_access_token,
+            user_id=config.notification.line_user_id,
             enabled=config.notification.enabled,
         )
 

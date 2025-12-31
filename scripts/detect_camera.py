@@ -93,7 +93,7 @@ def main() -> None:
 
     print(f"\n✅ 偵測到 {len(cameras)} 個攝影機")
     print("\n建議設定 config/settings.yaml:")
-    print(f"  camera:")
+    print("  camera:")
     print(f"    source: {cameras[0]['index']}")
 
     # 詢問是否預覽

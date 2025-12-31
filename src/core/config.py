@@ -40,7 +40,8 @@ class RecordingConfig:
 
 @dataclass
 class NotificationConfig:
-    line_token: str
+    line_channel_access_token: str
+    line_user_id: str
     enabled: bool
 
 

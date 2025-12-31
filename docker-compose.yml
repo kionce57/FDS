@@ -12,7 +12,8 @@ x-logging: &default-logging
     max-file: "3"
 
 x-common-env: &common-env
-  LINE_NOTIFY_TOKEN: ${LINE_NOTIFY_TOKEN:-}
+  LINE_BOT_CHANNEL_ACCESS_TOKEN: ${LINE_BOT_CHANNEL_ACCESS_TOKEN:-}
+  LINE_BOT_USER_ID: ${LINE_BOT_USER_ID:-}
   PYTHONUNBUFFERED: "1"
 
 services:
