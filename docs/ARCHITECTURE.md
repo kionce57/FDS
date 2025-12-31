@@ -1,7 +1,7 @@
 # FDS 系統架構文件
 
 > Fall Detection System 開發者學習指南
-> 
+>
 > 透過 C4 Model、Sequence Diagram 與 SA/SD 分析理解系統設計
 
 ---
@@ -35,13 +35,13 @@ C4Context
 
     Person(user, "家屬/照護者", "接收跌倒通知，查看歷史事件")
     Person(elderly, "長者", "被監測對象")
-    
+
     System(fds, "FDS Fall Detection System", "即時偵測跌倒，發送警報，記錄事件")
-    
+
     System_Ext(camera, "IP Camera / USB Camera", "提供即時影像串流")
     System_Ext(line, "LINE Notify API", "推播通知服務")
     System_Ext(gcp, "GCP Cloud Storage", "雲端備份骨架資料")
-    
+
     Rel(camera, fds, "RTSP/USB 影像串流")
     Rel(fds, line, "HTTP POST 通知")
     Rel(fds, gcp, "上傳 JSON 骨架資料")
@@ -50,6 +50,7 @@ C4Context
 ```
 
 **解讀重點：**
+
 - FDS 是一個**邊緣運算系統**，部署在本地設備（如樹莓派）
 - 對外依賴：攝影機（輸入）、LINE API（通知）、GCP（備份）
 - 使用者透過 **Web 儀表板** 或 **LINE 通知** 與系統互動
@@ -65,18 +66,18 @@ C4Container
     title FDS Container Diagram
 
     Person(user, "家屬/照護者")
-    
+
     Container_Boundary(fds, "FDS System") {
         Container(core, "Core Pipeline", "Python", "主流程協調器，串接所有模組")
         Container(web, "Web Dashboard", "FastAPI + Jinja2", "本地網頁儀表板")
         ContainerDb(sqlite, "SQLite", "Database", "事件 metadata 儲存")
         Container(clips, "Clip Storage", "File System", "影片片段儲存")
     }
-    
+
     System_Ext(camera, "Camera")
     System_Ext(line, "LINE Notify")
     System_Ext(gcp, "GCP Storage")
-    
+
     Rel(camera, core, "影像擷取")
     Rel(core, sqlite, "讀寫事件")
     Rel(core, clips, "儲存影片")
@@ -89,12 +90,12 @@ C4Container
 
 **Docker 部署對應：**
 
-| Container | Docker Service | 說明 |
-|-----------|---------------|------|
-| Core Pipeline | `fds` | 主服務，CPU-only |
-| Web Dashboard | `fds-web` | FastAPI Web 服務 |
-| SQLite | Volume mount | `data/fds.db` |
-| Clip Storage | Volume mount | `data/clips/` |
+| Container     | Docker Service | 說明             |
+| ------------- | -------------- | ---------------- |
+| Core Pipeline | `fds`          | 主服務，CPU-only |
+| Web Dashboard | `fds-web`      | FastAPI Web 服務 |
+| SQLite        | Volume mount   | `data/fds.db`    |
+| Clip Storage  | Volume mount   | `data/clips/`    |
 
 ---
 
@@ -116,8 +117,8 @@ C4Component
         Component(logger, "EventLogger", "events/event_logger.py", "SQLite 事件記錄")
         Component(recorder, "ClipRecorder", "events/clip_recorder.py", "MP4 影片儲存")
         Component(notifier, "LineNotifier", "events/notifier.py", "LINE API 通知")
-        Component(collector, "SkeletonCollector", "lifecycle/skeleton_collector.py", "非同步骨架收集")
         Component(pipeline, "Pipeline", "core/pipeline.py", "主流程協調器")
+        Component(collector, "SkeletonCollector", "lifecycle/skeleton_collector.py", "非同步骨架收集")
     }
 
     Rel(pipeline, camera, "read()")
@@ -137,14 +138,14 @@ C4Component
 
 **元件分層說明：**
 
-| 層級 | 模組 | 職責 |
-|------|------|------|
-| **Input Layer** | `capture/` | 影像擷取與緩衝 |
-| **Processing Layer** | `detection/` | AI 模型推論 |
-| **Analysis Layer** | `analysis/` | 規則判斷與狀態機 |
-| **Output Layer** | `events/` | 事件處理與通知 |
-| **Lifecycle Layer** | `lifecycle/` | 骨架提取、雲端同步、資料清理 |
-| **Orchestration** | `core/` | 流程整合 |
+| 層級                 | 模組         | 職責                         |
+| -------------------- | ------------ | ---------------------------- |
+| **Input Layer**      | `capture/`   | 影像擷取與緩衝               |
+| **Processing Layer** | `detection/` | AI 模型推論                  |
+| **Analysis Layer**   | `analysis/`  | 規則判斷與狀態機             |
+| **Output Layer**     | `events/`    | 事件處理與通知               |
+| **Lifecycle Layer**  | `lifecycle/` | 骨架提取、雲端同步、資料清理 |
+| **Orchestration**    | `core/`      | 流程整合                     |
 
 ---
 
@@ -171,7 +172,7 @@ sequenceDiagram
         Rule-->>Pip: bool
         Pip->>Buf: push(FrameData)
         Pip->>Delay: update(is_fallen, timestamp)
-        
+
         alt is_fallen = true 且持續 3 秒
             Delay->>Delay: state = CONFIRMED
             Delay->>Obs: on_fall_confirmed(event)
@@ -182,6 +183,7 @@ sequenceDiagram
 ```
 
 **流程解讀：**
+
 1. **Frame Capture**：每秒 15 幀從攝影機讀取
 2. **Detection**：YOLOv8 偵測人體 Bounding Box
 3. **Rule Check**：長寬比 < 1.3 視為跌倒
@@ -252,6 +254,7 @@ sequenceDiagram
 ```
 
 **設計優勢：**
+
 - 新增 Observer（如 Email 通知）無需修改 `DelayConfirm`
 - 各 Observer 獨立運作，不互相影響
 - 符合 **開放封閉原則 (OCP)**
@@ -279,20 +282,20 @@ stateDiagram-v2
 
 **狀態說明：**
 
-| 狀態 | 說明 | 觸發條件 | Observer 通知 |
-|------|------|----------|---------------|
-| `NORMAL` | 正常站立 | 預設/恢復 | - |
-| `SUSPECTED` | 疑似跌倒 | 長寬比 < 1.3 | `on_fall_suspected()` |
+| 狀態        | 說明     | 觸發條件          | Observer 通知         |
+| ----------- | -------- | ----------------- | --------------------- |
+| `NORMAL`    | 正常站立 | 預設/恢復         | -                     |
+| `SUSPECTED` | 疑似跌倒 | 長寬比 < 1.3      | `on_fall_suspected()` |
 | `CONFIRMED` | 確認跌倒 | 疑似狀態持續 3 秒 | `on_fall_confirmed()` |
 
 **狀態轉換時的 Observer 通知：**
 
-| 轉換 | 通知方法 | 接收者 |
-|------|----------|--------|
-| NORMAL → SUSPECTED | `on_fall_suspected(SuspectedEvent)` | `SkeletonCollector` |
-| SUSPECTED → NORMAL | `on_suspicion_cleared(SuspectedEvent)` | `SkeletonCollector` |
-| SUSPECTED → CONFIRMED | `on_fall_confirmed(FallEvent)` | `EventLogger`, `LineNotifier`, `Pipeline` |
-| CONFIRMED → NORMAL | `on_fall_recovered(FallEvent)` | `EventLogger`, `LineNotifier`, `Pipeline` |
+| 轉換                  | 通知方法                               | 接收者                                    |
+| --------------------- | -------------------------------------- | ----------------------------------------- |
+| NORMAL → SUSPECTED    | `on_fall_suspected(SuspectedEvent)`    | `SkeletonCollector`                       |
+| SUSPECTED → NORMAL    | `on_suspicion_cleared(SuspectedEvent)` | `SkeletonCollector`                       |
+| SUSPECTED → CONFIRMED | `on_fall_confirmed(FallEvent)`         | `EventLogger`, `LineNotifier`, `Pipeline` |
+| CONFIRMED → NORMAL    | `on_fall_recovered(FallEvent)`         | `EventLogger`, `LineNotifier`, `Pipeline` |
 
 ---
 
@@ -305,24 +308,24 @@ flowchart LR
     subgraph Input
         CAM[🎥 Camera]
     end
-    
+
     subgraph Processing
         DET[🔍 Detector<br/>YOLOv8]
         SKEL[🦴 Skeleton<br/>Extractor]
     end
-    
+
     subgraph Analysis
         RULE[📐 Rule Engine<br/>ratio < 1.3]
         DELAY[⏱️ Delay Confirm<br/>3 sec FSM]
     end
-    
+
     subgraph Output
         DB[(💾 SQLite)]
         CLIP[📹 Clip Storage]
         LINE[📱 LINE Notify]
         GCP[☁️ GCP Storage]
     end
-    
+
     CAM -->|frame| DET
     DET -->|bbox| RULE
     DET -->|keypoints| SKEL
@@ -359,6 +362,7 @@ flowchart LR
 ```
 
 **模組依賴原則：**
+
 - 箭頭方向表示「被依賴」
 - `Pipeline` 是最外層，依賴所有其他模組
 - `capture/` 是最內層，不依賴其他業務模組
@@ -393,6 +397,7 @@ class SuspectedEventObserver(Protocol):
 **應用**：`DelayConfirm` 通知 `SkeletonCollector` 進行骨架收集
 
 **設計優勢**：
+
 - 雙層 Observer 分離「疑似」與「確認」階段處理
 - `SkeletonCollector` 可在 SUSPECTED 階段提前記錄事件，待結果確定後提取骨架
 - 輸出檔名自帶標籤（`_confirmed.json` / `_cleared.json`），便於機器學習訓練
@@ -446,16 +451,16 @@ graph TD
     style G fill:#c8e6c9
 ```
 
-| 步驟 | 檔案 | 學習重點 |
-|------|------|----------|
-| 1 | [README.md](mdc:README.md) | 功能概覽、快速開始 |
-| 2 | 本文件 | 系統邊界、外部依賴 |
-| 3 | [pipeline.py](mdc:src/core/pipeline.py) | 主流程、元件串接 |
-| 4 | [delay_confirm.py](mdc:src/analysis/delay_confirm.py) | 狀態機設計、雙層 Observer |
-| 5 | [observer.py](mdc:src/events/observer.py) | 設計模式應用 |
-| 6 | [skeleton_collector.py](mdc:src/lifecycle/skeleton_collector.py) | 骨架收集機制 |
-| 7 | [pages.py](mdc:src/web/routes/pages.py) | Web 整合 |
+| 步驟 | 檔案                                                             | 學習重點                  |
+| ---- | ---------------------------------------------------------------- | ------------------------- |
+| 1    | [README.md](mdc:README.md)                                       | 功能概覽、快速開始        |
+| 2    | 本文件                                                           | 系統邊界、外部依賴        |
+| 3    | [pipeline.py](mdc:src/core/pipeline.py)                          | 主流程、元件串接          |
+| 4    | [delay_confirm.py](mdc:src/analysis/delay_confirm.py)            | 狀態機設計、雙層 Observer |
+| 5    | [observer.py](mdc:src/events/observer.py)                        | 設計模式應用              |
+| 6    | [skeleton_collector.py](mdc:src/lifecycle/skeleton_collector.py) | 骨架收集機制              |
+| 7    | [pages.py](mdc:src/web/routes/pages.py)                          | Web 整合                  |
 
 ---
 
-*文件更新日期：2025-12-31*
+_文件更新日期：2025-12-31_
