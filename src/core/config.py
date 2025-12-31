@@ -97,7 +97,7 @@ def _process_config_values(data: dict) -> dict:
 
 
 def load_config(config_path: str = "config/settings.yaml") -> Config:
-    with open(config_path) as f:
+    with open(config_path, encoding="utf-8") as f:
         raw_config = yaml.safe_load(f)
 
     config_data = _process_config_values(raw_config)
