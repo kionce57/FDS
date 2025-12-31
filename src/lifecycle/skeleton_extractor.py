@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from src.capture.rolling_buffer import FrameData
 from src.detection.detector import PoseDetector
 from src.detection.skeleton import Skeleton
 from src.lifecycle.schema import (
@@ -206,6 +207,72 @@ class SkeletonExtractor:
         """
         sequence = self.extract_from_video(video_path, event_id)
         sequence.to_json(output_path)
+
+    def extract_from_frames(
+        self,
+        frames: list[FrameData],
+        event_id: str,
+        fps: float = 15.0,
+    ) -> SkeletonSequence:
+        """從 FrameData 列表提取骨架序列
+
+        Args:
+            frames: RollingBuffer.get_clip() 返回的 FrameData 列表
+            event_id: 事件 ID
+            fps: 影片幀率
+
+        Returns:
+            SkeletonSequence 實例
+        """
+        if not frames:
+            return SkeletonSequence(
+                metadata=SkeletonMetadata(
+                    event_id=event_id,
+                    timestamp=datetime.now().isoformat(),
+                    source_video="memory",
+                    duration_sec=0,
+                    fps=int(fps),
+                    total_frames=0,
+                    extractor=ExtractorMetadata(
+                        engine="yolov8", model=self.model_path, version="8.0.0"
+                    ),
+                ),
+                keypoint_format="coco17",
+                sequence=[],
+                version="1.0",
+            )
+
+        duration_sec = (frames[-1].timestamp - frames[0].timestamp) if len(frames) > 1 else 0
+        first_frame = frames[0].frame
+        frame_shape = first_frame.shape[:2]  # (height, width)
+
+        metadata = SkeletonMetadata(
+            event_id=event_id,
+            timestamp=datetime.now().isoformat(),
+            source_video="memory",
+            duration_sec=duration_sec,
+            fps=int(fps),
+            total_frames=len(frames),
+            extractor=ExtractorMetadata(
+                engine="yolov8", model=self.model_path, version="8.0.0"
+            ),
+        )
+
+        sequence = []
+        for idx, frame_data in enumerate(frames):
+            skeletons = self.detector.detect(frame_data.frame)
+            if skeletons:
+                skeleton_frame = self._skeleton_to_frame(
+                    skeletons[0], idx, frame_data.timestamp, frame_shape
+                )
+                sequence.append(skeleton_frame)
+
+        return SkeletonSequence(
+            metadata=metadata,
+            keypoint_format="coco17",
+            sequence=sequence,
+            version="1.0",
+        )
 
 
 __all__ = ["SkeletonExtractor"]

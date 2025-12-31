@@ -5,6 +5,7 @@ from unittest.mock import patch
 from src.lifecycle.skeleton_extractor import SkeletonExtractor
 from src.lifecycle.schema import SkeletonSequence
 from src.detection.skeleton import Skeleton
+from src.capture.rolling_buffer import FrameData
 
 
 class TestSkeletonExtractor:
@@ -178,3 +179,70 @@ class TestSkeletonExtractor:
 
             validator = SkeletonValidator()
             assert validator.validate_file(output_path)
+
+
+class TestExtractFromFrames:
+    @pytest.fixture
+    def extractor(self):
+        return SkeletonExtractor(model_path="yolov8n-pose.pt")
+
+    @pytest.fixture
+    def mock_skeleton(self):
+        """模擬 YOLOv8 Skeleton 輸出（像素座標，基於 640x480 影像）"""
+        keypoints = np.array(
+            [
+                [332.8, 72.0, 0.95],  # nose
+                [307.2, 57.6, 0.92],  # left_eye
+                [358.4, 57.6, 0.91],  # right_eye
+                [288.0, 67.2, 0.85],  # left_ear
+                [377.6, 67.2, 0.87],  # right_ear
+                [288.0, 134.4, 0.98],  # left_shoulder
+                [371.2, 129.6, 0.97],  # right_shoulder
+                [268.8, 201.6, 0.90],  # left_elbow
+                [390.4, 196.8, 0.89],  # right_elbow
+                [256.0, 268.8, 0.75],  # left_wrist
+                [403.2, 264.0, 0.78],  # right_wrist
+                [300.8, 288.0, 0.96],  # left_hip
+                [339.2, 288.0, 0.95],  # right_hip
+                [294.4, 374.4, 0.92],  # left_knee
+                [345.6, 374.4, 0.91],  # right_knee
+                [288.0, 456.0, 0.88],  # left_ankle
+                [352.0, 456.0, 0.87],  # right_ankle
+            ]
+        )
+        return Skeleton(keypoints=keypoints)
+
+    def test_extract_from_frames_returns_sequence(self, extractor, mock_skeleton):
+        """測試從 FrameData 列表提取骨架序列"""
+        frames = [
+            FrameData(
+                timestamp=i * 0.066,  # 15fps
+                frame=np.zeros((480, 640, 3), dtype=np.uint8),
+                bbox=None,
+            )
+            for i in range(10)
+        ]
+
+        with patch.object(extractor.detector, "detect") as mock_detect:
+            mock_detect.return_value = [mock_skeleton]
+
+            result = extractor.extract_from_frames(
+                frames=frames,
+                event_id="test_evt",
+                fps=15.0,
+            )
+
+            assert result is not None
+            assert result.metadata.event_id == "test_evt"
+            assert result.keypoint_format == "coco17"
+
+    def test_extract_from_frames_empty_list(self, extractor):
+        """測試空列表輸入"""
+        result = extractor.extract_from_frames(
+            frames=[],
+            event_id="empty_evt",
+            fps=15.0,
+        )
+
+        assert result.sequence == []
+        assert result.metadata.event_id == "empty_evt"
