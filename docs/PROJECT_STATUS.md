@@ -482,14 +482,14 @@ src/
 
 ### 未測試項目
 - 真實 Docker 容器執行（需實際攝影機）
-- 真實 GCP Cloud Storage 上傳（目前測試使用 mock）
+- 真實 GCP Cloud Storage 上傳 ✅
 
 ---
 
 ## 🔧 開發環境設定
 
 ### 當前環境
-- **位置：** `/home/kionc9986/Projects/FDS`
+- **位置：** `/home/usr/FDS`
 - **分支：** `main`
 - **Python：** 3.12.3
 - **uv 版本：** 最新
@@ -499,7 +499,7 @@ src/
 ### 快速設定（新開發者）
 ```bash
 # 1. Clone 專案
-cd /home/kionc9986/Projects/FDS
+cd /home/usr/FDS
 
 # 2. 安裝依賴
 uv sync --all-extras
@@ -542,7 +542,8 @@ analysis:
   delay_sec: 3.0               # 延遲確認秒數
 
 notification:
-  line_token: "${LINE_NOTIFY_TOKEN}"  # 從 .env 讀取
+  line_channel_access_token: "${line_channel_access_token}"  # 從 .env 讀取
+  line_user_id: "${LINE_BOT_USER_ID}"
   enabled: true
 
 cloud_sync:
