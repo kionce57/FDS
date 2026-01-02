@@ -2,6 +2,7 @@
 
 ## 1
 
+
 ```mermaid
 graph TD
     %% Hardware Layer
@@ -214,3 +215,61 @@ graph LR
 
 目前的系統是典型的「堆疊式開發」（Stack-based development）。能跑，但臃腫。如果你想把它變成產品，**Delete the LLM reference, optimize the physics logic, and ship it.**
 
+## 3
+
+
+根據你的系統架構，YOLO 已經幫你解決了最難的「感知」問題（給出了 Keypoints），你的「物理引擎」只需要做一件事：**判斷這些點的幾何關係變化是否符合重力加速度導致的失控。**
+
+```python
+import numpy as np
+from dataclasses import dataclass
+
+@dataclass
+class PoseState:
+    norm_torso_vector: np.array  # [dx, dy] normalized
+    hip_velocity_y: float        # Normalized distance per second
+    bbox_aspect_ratio: float     # width / height
+
+class FallDetector:
+    def __init__(self, fps=30):
+        # Good Taste: Configurable, scale-invariant thresholds
+        self.FALL_ASPECT_RATIO = 1.2  # Width > Height means lying down
+        self.IMPACT_VELOCITY = 0.05   # 5% of screen height per frame (fast!)
+        self.GRAVITY_VECTOR = np.array([0, 1]) # Assuming camera is upright
+
+    def analyze(self, keypoints, history) -> bool:
+        """
+        Returns True if fall detected.
+        Input: keypoints (normalized 0-1), history (previous frames)
+        """
+        # 1. Simplify Data Structure: Get Torso Vector
+        # Index: 5=L_Shoulder, 6=R_Shoulder, 11=L_Hip, 12=R_Hip
+        mid_shoulder = (keypoints[5] + keypoints[6]) / 2
+        mid_hip = (keypoints[11] + keypoints[12]) / 2
+        
+        torso_vector = mid_shoulder - mid_hip
+        
+        # 2. The Math (Geometry): Alignment with Gravity
+        # Dot product is faster and cleaner than calculating degrees.
+        # If torso aligns with gravity, dot product is ~1. If horizontal, ~0.
+        vertical_alignment = np.dot(torso_vector, self.GRAVITY_VECTOR)
+        
+        # 3. The Physics: Velocity (Kinetic Energy proxy)
+        prev_hip = history[-1].mid_hip if history else mid_hip
+        velocity_y = (mid_hip[1] - prev_hip[1]) # Positive means going down
+        
+        # 4. The Logic: Combine Spatial and Temporal features
+        # A fall is: Not Vertical anymore AND (Moved down fast OR Is wide on ground)
+        
+        is_horizontal = abs(vertical_alignment) < 0.5 # Less than ~60 degrees projection
+        high_impact = velocity_y > self.IMPACT_VELOCITY
+        
+        # Heuristic: If you are horizontal and logic suggests you hit the ground hard
+        if is_horizontal and high_impact:
+             return True
+             
+        # Catch the "Slow Fall" (Old people): Horizontal for N frames?
+        # That belongs in the State Machine logic, not per-frame physics.
+        
+        return False
+```
