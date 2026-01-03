@@ -2,7 +2,6 @@
 
 ## 1
 
-
 ```mermaid
 graph TD
     %% Hardware Layer
@@ -20,10 +19,10 @@ graph TD
     subgraph Core [Layer 2: Detection Loop]
         CAP -->|Latest Frame| YOLO[YOLOv8 Inference]
         YOLO -->|BBox & Keypoints| RULE["Rule Engine\nAspect Ratio < 1.3"]
-        
+
         RULE -- Normal --> STATE_RESET[Reset Counter]
         RULE -- Potential Fall --> STATE_CHECK["Delay Confirmation\n(State Machine)"]
-        
+
         STATE_CHECK -- "Wait (t < 3s)" --> WAIT[Accumulate Confidence]
         STATE_CHECK -- "Confirmed (t >= 3s)" --> EVENT[Event Trigger]
     end
@@ -33,7 +32,7 @@ graph TD
         EVENT -->|1. Fire & Forget| NOTIFY[LINE Notify Service]
         EVENT -->|2. Dump Buffer + Record| REC[Clip Recorder]
         EVENT -->|3. Write Metadata| DB[(SQLite Database)]
-        
+
         REC -->|Save .mp4| DISK[Local Disk /data/clips]
         DB -->|Log Event| DISK
     end
@@ -63,7 +62,7 @@ graph TD
 stateDiagram-v2
     direction LR
     [*] --> Standing
-    
+
     state "Standing / Walking" as Standing {
         [*] --> CheckVertical
         CheckVertical --> Normal: Torso • Gravity > 0.8
@@ -72,7 +71,7 @@ stateDiagram-v2
 
     Standing --> Unstable: Velocity_Y > Threshold (Impact)
     Standing --> Unstable: Angle < 45°
-    
+
     state "Unstable / Falling" as Unstable {
         [*] --> Monitoring
         Monitoring --> Fallen: Stay Low for > 2s
@@ -92,7 +91,7 @@ graph LR
     subgraph Edge_Compute ["Edge Device (Jetson/Pi)"]
         direction TB
         Input[("📷 Camera Source<br/>(RTSP/USB)")]
-        
+
         subgraph Perception ["Perception Loop (Neural Net)"]
             YOLO["🚀 YOLOv8-Pose<br/>(TensorRT Optimized)"]
         end
@@ -116,11 +115,11 @@ graph LR
     Input -->|Raw Frames| Buffer
     YOLO -->|"Keypoints (x,y,c)"| Vectors
     Vectors --> Threshold
-    
+
     Threshold -->|FALSE| Vectors
     Threshold -->|TRUE| Line
     Threshold -->|TRUE| DB
-    
+
     %% Video Dump Logic
     Threshold -->|Trigger| Storage
     Buffer -.->|Dump Cached Frames| Storage
@@ -152,11 +151,13 @@ graph LR
 最好的部分就是沒有部分（The best part is no part）。
 
 1. **Delete LLM Module**
+
    - 用簡單的**幾何數學（Geometry Math）**代替。
    - 計算 Bounding Box 的 Aspect Ratio 或者 Keypoints 的角度向量。
    - 延遲（Latency）從幾百毫秒降到微秒級（Microseconds）。
 
 2. **Refactor OpenCV**
+
    - 這是工具庫，不是架構模組。把它整合進 Detection Loop。不要讓它成為一個單獨的「步驟」。
 
 3. **Consolidate Storage**
@@ -185,7 +186,7 @@ graph LR
 1. **Python Version**: README 寫 Python 3.12。對於原型（Prototype）可以。但若部署到 Edge (Raspberry Pi/Jetson)，此架構依然適用，但需注意優化。
 2. **Docker**: 很好，保持這個。這是唯一能讓部署標準化的東西。
 3. **Delay Confirm (3s)**:
-   - 在急救場景中，3秒是永恆。
+   - 在急救場景中，3 秒是永恆。
    - 如果模型準確率夠高（使用骨架角度），可縮短至 0.5 秒或 0。
    - **正確邏輯**: "偵測到高衝擊力動作" $\rightarrow$ "發出警報"。
    - **原則**: 在安全領域，False Positive (誤報) 優於 False Negative (漏報)。
@@ -197,7 +198,7 @@ graph LR
 1. **輸入 (Input)**: RTSP Stream / USB Cam
 2. **計算核心 (Core Loop)**:
    - **Frame In**: 取得影像。
-   - **Inference (TensorRT)**: 運行 YOLOv8-Pose (轉為 TensorRT 格式加速 5-10倍)。
+   - **Inference (TensorRT)**: 運行 YOLOv8-Pose (轉為 TensorRT 格式加速 5-10 倍)。
    - **Vector Analysis**: 計算軀幹向量 $V_{torso}$ 與地面的夾角 $\theta$。
    - **Trigger**: If $\theta < 20^\circ$ AND $\Delta t_{change} < 500ms$ $\rightarrow$ **FALL DETECTED**.
 3. **Action**:
@@ -216,7 +217,6 @@ graph LR
 目前的系統是典型的「堆疊式開發」（Stack-based development）。能跑，但臃腫。如果你想把它變成產品，**Delete the LLM reference, optimize the physics logic, and ship it.**
 
 ## 3
-
 
 根據你的系統架構，YOLO 已經幫你解決了最難的「感知」問題（給出了 Keypoints），你的「物理引擎」只需要做一件事：**判斷這些點的幾何關係變化是否符合重力加速度導致的失控。**
 
@@ -246,30 +246,30 @@ class FallDetector:
         # Index: 5=L_Shoulder, 6=R_Shoulder, 11=L_Hip, 12=R_Hip
         mid_shoulder = (keypoints[5] + keypoints[6]) / 2
         mid_hip = (keypoints[11] + keypoints[12]) / 2
-        
+
         torso_vector = mid_shoulder - mid_hip
-        
+
         # 2. The Math (Geometry): Alignment with Gravity
         # Dot product is faster and cleaner than calculating degrees.
         # If torso aligns with gravity, dot product is ~1. If horizontal, ~0.
         vertical_alignment = np.dot(torso_vector, self.GRAVITY_VECTOR)
-        
+
         # 3. The Physics: Velocity (Kinetic Energy proxy)
         prev_hip = history[-1].mid_hip if history else mid_hip
         velocity_y = (mid_hip[1] - prev_hip[1]) # Positive means going down
-        
+
         # 4. The Logic: Combine Spatial and Temporal features
         # A fall is: Not Vertical anymore AND (Moved down fast OR Is wide on ground)
-        
+
         is_horizontal = abs(vertical_alignment) < 0.5 # Less than ~60 degrees projection
         high_impact = velocity_y > self.IMPACT_VELOCITY
-        
+
         # Heuristic: If you are horizontal and logic suggests you hit the ground hard
         if is_horizontal and high_impact:
              return True
-             
+
         # Catch the "Slow Fall" (Old people): Horizontal for N frames?
         # That belongs in the State Machine logic, not per-frame physics.
-        
+
         return False
 ```
