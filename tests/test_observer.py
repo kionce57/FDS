@@ -47,6 +47,29 @@ class TestMockObserver:
         assert len(observer.recovered_events) == 1
 
 
+class TestFallEventClipUrl:
+    def test_fall_event_has_clip_url(self):
+        """clip_url should be available for LINE notification video attachment"""
+        event = FallEvent(
+            event_id="evt_123",
+            confirmed_at=1234567890.0,
+            last_notified_at=1234567890.0,
+            notification_count=1,
+            clip_url="https://example.com/clips/evt_123.mp4",
+        )
+        assert event.clip_url == "https://example.com/clips/evt_123.mp4"
+
+    def test_fall_event_clip_url_defaults_to_none(self):
+        """clip_url should default to None for backward compatibility"""
+        event = FallEvent(
+            event_id="evt_456",
+            confirmed_at=1234567890.0,
+            last_notified_at=1234567890.0,
+            notification_count=1,
+        )
+        assert event.clip_url is None
+
+
 class TestSuspectedEvent:
     def test_suspected_event_creation(self):
         event = SuspectedEvent(

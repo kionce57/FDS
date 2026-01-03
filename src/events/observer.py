@@ -8,6 +8,7 @@ class FallEvent:
     confirmed_at: float
     last_notified_at: float
     notification_count: int
+    clip_url: str | None = None  # 影片的公開 URL，用於 LINE 通知
 
 
 @dataclass
