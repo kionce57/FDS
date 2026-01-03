@@ -77,3 +77,40 @@ class TestLineNotifier:
             assert isinstance(json_body["messages"], list)
             message_text = json_body["messages"][0]["text"]
             assert "恢復" in message_text or "recovered" in message_text.lower()
+
+    def test_send_with_video_includes_video_message(self, notifier):
+        """When clip_url is provided, notification should include video message."""
+        event = FallEvent(
+            event_id="evt_123",
+            confirmed_at=1234567890.0,
+            last_notified_at=1234567890.0,
+            notification_count=1,
+            clip_url="https://example.com/clips/evt_123.mp4",
+        )
+
+        with patch("requests.post") as mock_post:
+            mock_post.return_value.status_code = 200
+            notifier.on_fall_confirmed(event)
+
+            call_args = mock_post.call_args
+            messages = call_args.kwargs["json"]["messages"]
+
+            # Should have 2 messages: text + video
+            assert len(messages) == 2
+            assert messages[0]["type"] == "text"
+            assert messages[1]["type"] == "video"
+            assert messages[1]["originalContentUrl"] == "https://example.com/clips/evt_123.mp4"
+            assert messages[1]["previewImageUrl"] == "https://example.com/clips/evt_123_thumb.jpg"
+
+    def test_send_without_video_only_text_message(self, notifier, sample_event):
+        """When clip_url is None, notification should only include text message."""
+        with patch("requests.post") as mock_post:
+            mock_post.return_value.status_code = 200
+            notifier.on_fall_confirmed(sample_event)
+
+            call_args = mock_post.call_args
+            messages = call_args.kwargs["json"]["messages"]
+
+            # Should have only 1 text message
+            assert len(messages) == 1
+            assert messages[0]["type"] == "text"

@@ -39,8 +39,23 @@ class LineNotifier(FallEventObserver):
         message = f"\n✅ 已恢復\n事件 ID: {event.event_id}\n恢復時間: {timestamp}"
         self._send(event, message)
 
+    def _build_messages(self, event: FallEvent, text: str) -> list[dict]:
+        """Build message list for LINE API. Includes video if clip_url is available."""
+        messages: list[dict] = [{"type": "text", "text": text}]
+
+        if event.clip_url:
+            preview_url = event.clip_url.replace(".mp4", "_thumb.jpg")
+            messages.append({
+                "type": "video",
+                "originalContentUrl": event.clip_url,
+                "previewImageUrl": preview_url,
+            })
+
+        return messages
+
     def _send(self, event: FallEvent, message: str) -> bool:
         try:
+            messages = self._build_messages(event, message)
             response = requests.post(
                 self.API_URL,
                 headers={
@@ -49,7 +64,7 @@ class LineNotifier(FallEventObserver):
                 },
                 json={
                     "to": self.user_id,
-                    "messages": [{"type": "text", "text": message}],
+                    "messages": messages,
                 },
                 timeout=10,
             )
