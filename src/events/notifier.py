@@ -85,6 +85,7 @@ class LineNotifier(FallEventObserver):
             event = self._pending_queue[0]
             timestamp = datetime.fromtimestamp(event.confirmed_at).strftime("%Y-%m-%d %H:%M:%S")
             message = f"\n🚨 跌倒警報 (重試)!\n事件 ID: {event.event_id}\n時間: {timestamp}"
+            messages = self._build_messages(event, message)
             try:
                 response = requests.post(
                     self.API_URL,
@@ -94,7 +95,7 @@ class LineNotifier(FallEventObserver):
                     },
                     json={
                         "to": self.user_id,
-                        "messages": [{"type": "text", "text": message}],
+                        "messages": messages,
                     },
                     timeout=10,
                 )
