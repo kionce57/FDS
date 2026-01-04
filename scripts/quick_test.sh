@@ -68,7 +68,7 @@ from src.lifecycle.skeleton_extractor import SkeletonExtractor
 from src.lifecycle.schema.validator import SkeletonValidator
 
 try:
-    extractor = SkeletonExtractor(model_path='yolov8n-pose.pt')
+    extractor = SkeletonExtractor(model_path='yolo11s-pose.pt')
     output_path = Path('data/quick_test_skeleton.json')
     output_path.parent.mkdir(parents=True, exist_ok=True)
 

@@ -133,7 +133,7 @@ def save_skeleton_frames(video_path: str, output_dir: str, every_n_frames: int =
     logger.info(f"輸出目錄: {output_path}")
 
     # 初始化偵測器
-    detector = PoseDetector(model_path="yolov8n-pose.pt", confidence=0.5)
+    detector = PoseDetector(model_path="yolo11s-pose.pt", confidence=0.5)
 
     frame_count = 0
     saved_count = 0

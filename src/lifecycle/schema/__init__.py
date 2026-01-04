@@ -63,7 +63,7 @@ class SkeletonFrame:
 class ExtractorMetadata:
     """提取器元資料"""
 
-    engine: Literal["yolov8", "mediapipe"]
+    engine: Literal["yolov8", "yolo11", "mediapipe"]
     model: str
     version: str
 
