@@ -35,7 +35,7 @@ from src.lifecycle.skeleton_extractor import SkeletonExtractor
 from src.lifecycle.schema.validator import SkeletonValidator
 
 # 初始化
-extractor = SkeletonExtractor(model_path='yolov8n-pose.pt')
+extractor = SkeletonExtractor(model_path='yolo11s-pose.pt')
 output_path = Path('data/test_output.json')
 output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -173,7 +173,7 @@ from pathlib import Path
 from src.lifecycle.skeleton_extractor import SkeletonExtractor
 from src.lifecycle.schema.validator import SkeletonValidator
 
-extractor = SkeletonExtractor(model_path='yolov8n-pose.pt')
+extractor = SkeletonExtractor(model_path='yolo11s-pose.pt')
 output_path = Path('data/test_skeleton_windows.json')
 output_path.parent.mkdir(parents=True, exist_ok=True)
 

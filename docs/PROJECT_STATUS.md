@@ -1,7 +1,7 @@
 # FDS 專案狀態文檔
 
-> 最後更新：2025-12-31
-> 更新者：Claude Opus 4.5 (Skeleton Observer Extension Complete)
+> 最後更新：2025-01-04
+> 更新者：Claude Opus 4.5 (YOLO11-Pose Integration In Progress)
 
 本文檔提供完整的專案狀態，供後續開發者快速了解並繼續開發。
 
@@ -15,7 +15,7 @@
 
 **技術棧：**
 - Python 3.12+
-- YOLOv8 (Ultralytics) - 物件偵測 & 姿態估計
+- YOLO11/YOLOv8 (Ultralytics) - 物件偵測 & 姿態估計
 - OpenCV - 影像處理
 - SQLite - 事件記錄
 - Docker - 容器化部署
@@ -348,6 +348,40 @@ src/
 - **測試結果:** 206 個測試（新增 10 個），202 passed, 4 failed（pre-existing GCP 問題）
 - **設計文檔:** `docs/plans/2025-12-31-skeleton-observer-extension.md`
 
+#### Task 21: YOLO11-Pose Integration 🔄 進行中
+- **日期：** 2025-01-04
+- **狀態：** 🔄 Phase A 進行中（3/6 tasks 完成）
+- **目標：** 將 Pose 模型從 YOLOv8n-Pose 升級至 YOLO11s-Pose，並加入時序過濾
+
+**已完成的 Commits:**
+1. `b42ea07` - feat(config): add pose_model configuration for YOLO11 support
+2. `630509e` - feat(detector): change PoseDetector default to yolo11s-pose
+3. `e61fbcd` - feat(skeleton_extractor): use yolo11s-pose as default
+
+**Phase A 進度（配置化 + 模型切換）:**
+- ✅ A.1: Config 新增 `pose_model` 設定
+- ✅ A.2: PoseDetector 改用 yolo11s-pose 預設
+- ✅ A.3: SkeletonExtractor 改用 yolo11s-pose 預設
+- 🔲 A.4: 測試腳本更新 (test_with_video, save_skeleton_frames)
+- 🔲 A.5: 文件更新 (CLAUDE.md, docs/)
+- 🔲 A.6: Keypoint 格式相容性測試
+
+**Phase B 進度（KeypointSmoother 時序過濾）:**
+- 🔲 B.1: 實作 One Euro Filter
+- 🔲 B.2: 實作 KeypointSmoother
+- 🔲 B.3: 整合至 PoseRuleEngine
+- 🔲 B.4: 測試腳本傳入 timestamp
+- 🔲 B.5: 端到端整合測試
+
+**修改檔案:**
+- `src/core/config.py` - 新增 `pose_model: str` 欄位
+- `config/settings.yaml` - 新增 `detection.pose_model: "yolo11s-pose.pt"`
+- `src/detection/detector.py` - PoseDetector 預設改為 yolo11s-pose.pt
+- `src/lifecycle/skeleton_extractor.py` - 預設改為 yolo11s-pose.pt，engine 改為 yolo11
+- `config/skeleton_schema.json` - 新增 yolo11 至 engine enum
+
+**詳細計畫:** `docs/plans/2025-01-03-yolo11-pose-integration.md`
+
 ---
 
 ## 🔄 待辦事項（按優先級）
@@ -535,6 +569,7 @@ camera:
 
 detection:
   model: "yolov8n.pt"          # BBox 模式
+  pose_model: "yolo11s-pose.pt" # Pose 模式（新增）
   confidence: 0.5
 
 analysis:

@@ -8,13 +8,17 @@
 
 **Tech Stack:** Python 3.12+, Ultralytics YOLO11, One Euro Filter
 
+**Status:** Phase A 進行中 (3/6 完成) - 最後更新 2025-01-04
+
 ---
 
 ## Phase A: 配置化 Pose Model + 模型切換
 
 **目標：** 將 pose model 路徑從硬編碼改為可配置，並預設使用 `yolo11s-pose.pt`
 
-### Task A.1: 擴展 Config 支援 pose_model
+### Task A.1: 擴展 Config 支援 pose_model ✅
+
+> **Completed:** 2025-01-04 | **Commit:** `b42ea07`
 
 **Files:**
 - Modify: `src/core/config.py`
@@ -73,7 +77,9 @@ git commit -m "feat(config): add pose_model configuration for YOLO11 support"
 
 ---
 
-### Task A.2: 更新 PoseDetector 使用配置
+### Task A.2: 更新 PoseDetector 使用配置 ✅
+
+> **Completed:** 2025-01-04 | **Commit:** `630509e`
 
 **Files:**
 - Modify: `src/detection/detector.py`
@@ -118,7 +124,9 @@ git commit -m "feat(detector): change PoseDetector default to yolo11s-pose"
 
 ---
 
-### Task A.3: 更新 SkeletonExtractor 使用配置
+### Task A.3: 更新 SkeletonExtractor 使用配置 ✅
+
+> **Completed:** 2025-01-04 | **Commit:** `e61fbcd`
 
 **Files:**
 - Modify: `src/lifecycle/skeleton_extractor.py`
