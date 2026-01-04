@@ -3,8 +3,6 @@ from enum import Enum
 from src.events.observer import (
     FallEvent,
     FallEventObserver,
-    SuspectedEvent,
-    SuspectedEventObserver,
 )
 
 
@@ -28,15 +26,10 @@ class DelayConfirm:
 
         self.suspected_since: float | None = None
         self.current_event: FallEvent | None = None
-        self.current_suspected: SuspectedEvent | None = None
         self.observers: list[FallEventObserver] = []
-        self.suspected_observers: list[SuspectedEventObserver] = []
 
     def add_observer(self, observer: FallEventObserver) -> None:
         self.observers.append(observer)
-
-    def add_suspected_observer(self, observer: SuspectedEventObserver) -> None:
-        self.suspected_observers.append(observer)
 
     def update(self, is_fallen: bool, current_time: float) -> FallState:
         match self.state:
@@ -44,11 +37,10 @@ class DelayConfirm:
                 if is_fallen:
                     self.state = FallState.SUSPECTED
                     self.suspected_since = current_time
-                    self._notify_suspected(current_time)
 
             case FallState.SUSPECTED:
                 if not is_fallen:
-                    self._clear_suspicion(current_time)
+                    self._reset()
                 elif current_time - self.suspected_since >= self.delay_sec:
                     self._confirm_fall(current_time)
 
@@ -60,29 +52,7 @@ class DelayConfirm:
 
         return self.state
 
-    def _notify_suspected(self, current_time: float) -> None:
-        self.current_suspected = SuspectedEvent(
-            suspected_id=f"sus_{int(current_time)}",
-            suspected_at=current_time,
-            outcome="pending",
-        )
-        for observer in self.suspected_observers:
-            observer.on_fall_suspected(self.current_suspected)
-
-    def _clear_suspicion(self, current_time: float) -> None:
-        if self.current_suspected:
-            self.current_suspected.outcome = "cleared"
-            self.current_suspected.outcome_at = current_time
-            for observer in self.suspected_observers:
-                observer.on_suspicion_cleared(self.current_suspected)
-        self._reset()
-
     def _confirm_fall(self, current_time: float) -> None:
-        # 更新 suspected 事件的 outcome
-        if self.current_suspected:
-            self.current_suspected.outcome = "confirmed"
-            self.current_suspected.outcome_at = current_time
-
         if (
             self.current_event
             and current_time - self.current_event.confirmed_at < self.same_event_window
@@ -115,9 +85,7 @@ class DelayConfirm:
             for observer in self.observers:
                 observer.on_fall_recovered(self.current_event)
         self.suspected_since = None
-        self.current_suspected = None
 
     def _reset(self) -> None:
         self.state = FallState.NORMAL
         self.suspected_since = None
-        self.current_suspected = None

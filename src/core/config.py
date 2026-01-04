@@ -49,20 +49,8 @@ class NotificationConfig:
 @dataclass
 class LifecycleConfig:
     clip_retention_days: int
-    skeleton_retention_days: int
     cleanup_enabled: bool = True
     cleanup_schedule_hours: int = 24
-    auto_skeleton_extract: bool = False
-    skeleton_output_dir: str = "data/skeletons"
-
-
-@dataclass
-class CloudSyncConfig:
-    enabled: bool
-    gcs_bucket: str
-    upload_on_extract: bool
-    retry_attempts: int
-    retry_delay_seconds: int
 
 
 @dataclass
@@ -73,7 +61,6 @@ class Config:
     recording: RecordingConfig
     notification: NotificationConfig
     lifecycle: LifecycleConfig
-    cloud_sync: CloudSyncConfig
 
 
 def _substitute_env_vars(value: str) -> str:
@@ -111,5 +98,4 @@ def load_config(config_path: str = "config/settings.yaml") -> Config:
         recording=RecordingConfig(**config_data["recording"]),
         notification=NotificationConfig(**config_data["notification"]),
         lifecycle=LifecycleConfig(**config_data["lifecycle"]),
-        cloud_sync=CloudSyncConfig(**config_data["cloud_sync"]),
     )

@@ -9,7 +9,6 @@ from src.core.config import (
     RecordingConfig,
     NotificationConfig,
     LifecycleConfig,
-    CloudSyncConfig,
 )
 from src.core.pipeline import Pipeline
 from src.detection.bbox import BBox
@@ -28,14 +27,7 @@ def test_config(tmp_path):
         notification=NotificationConfig(
             line_channel_access_token="test", line_user_id="U123", enabled=False
         ),
-        lifecycle=LifecycleConfig(clip_retention_days=7, skeleton_retention_days=30),
-        cloud_sync=CloudSyncConfig(
-            enabled=False,
-            gcs_bucket="",
-            upload_on_extract=False,
-            retry_attempts=3,
-            retry_delay_seconds=5,
-        ),
+        lifecycle=LifecycleConfig(clip_retention_days=7),
     )
 
 

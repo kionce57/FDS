@@ -30,15 +30,5 @@ notification:
 
 lifecycle:
   clip_retention_days: 7
-  skeleton_retention_days: 30
   cleanup_enabled: true
   cleanup_schedule_hours: 24
-  auto_skeleton_extract: true
-  skeleton_output_dir: "data/skeletons"
-
-cloud_sync:
-  enabled: true
-  gcs_bucket: "${GCS_BUCKET_NAME}"
-  upload_on_extract: false
-  retry_attempts: 3
-  retry_delay_seconds: 5
