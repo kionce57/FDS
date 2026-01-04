@@ -3,11 +3,11 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-居家長照跌倒偵測系統，使用 YOLOv8 進行人體偵測，透過長寬比規則判斷跌倒，並發送 LINE 通知。
+居家長照跌倒偵測系統，使用 YOLO11 進行人體偵測，透過長寬比規則判斷跌倒，並發送 LINE 通知。
 
 ## 功能特色
 
-- 🎯 **即時跌倒偵測** - 使用 YOLOv8 進行人體偵測與長寬比/骨架角度分析
+- 🎯 **即時跌倒偵測** - 使用 YOLO11 進行人體偵測與長寬比/骨架角度分析
 - ⏱️ **延遲確認機制** - 3 秒延遲減少誤報（如彎腰撿東西）
 - 📹 **事件前後錄影** - 自動保存跌倒前後 10 秒影片
 - 📱 **LINE 即時通知** - 跌倒確認後立即推播警報
@@ -51,6 +51,7 @@ docker-compose run --rm fds-cleanup
 ```
 
 **Docker 優勢：**
+
 - ✅ 環境一致性（避免依賴問題）
 - ✅ 適合樹莓派/邊緣裝置部署
 - ✅ 資料持久化（自動 volume 掛載）
@@ -95,6 +96,7 @@ analysis:
 ### 執行
 
 **Docker 模式：**
+
 ```bash
 # 啟動服務（背景執行）
 docker-compose up -d
@@ -107,6 +109,7 @@ docker-compose restart fds
 ```
 
 **本地開發模式：**
+
 ```bash
 # 執行主程式
 uv run python main.py
@@ -117,24 +120,27 @@ uv run python main.py
 ### Docker 進階設定
 
 **攝影機設備映射：**
+
 ```yaml
 # docker-compose.yml 中修改
 devices:
-  - /dev/video0:/dev/video0  # USB 攝影機
+  - /dev/video0:/dev/video0 # USB 攝影機
   # - /dev/video1:/dev/video1  # 多攝影機
 ```
 
 **資源限制調整：**
+
 ```yaml
 # docker-compose.yml 中修改
 deploy:
   resources:
     limits:
-      cpus: '2.0'      # 最多使用 2 個 CPU 核心
-      memory: 2G       # 最多使用 2GB RAM
+      cpus: "2.0" # 最多使用 2 個 CPU 核心
+      memory: 2G # 最多使用 2GB RAM
 ```
 
 **定時清理（Cron）：**
+
 ```bash
 # 在主機上設定 crontab
 0 3 * * * cd /path/to/FDS && docker-compose run --rm fds-cleanup
@@ -181,7 +187,7 @@ FDS/
 │   │   └── rolling_buffer.py  # 環形緩衝區
 │   ├── detection/             # 偵測模組
 │   │   ├── bbox.py            # BBox 資料結構
-│   │   └── detector.py        # YOLOv8 偵測器
+│   │   └── detector.py        # YOLO11 偵測器
 │   ├── analysis/              # 分析模組
 │   │   ├── rule_engine.py     # 長寬比規則
 │   │   └── delay_confirm.py   # 延遲確認狀態機
@@ -211,7 +217,7 @@ FDS/
 ## 技術棧
 
 - **Python 3.12+**
-- **YOLOv8** (Ultralytics) - 物件偵測與姿態估計
+- **YOLO11** (Ultralytics) - 物件偵測與姿態估計
 - **OpenCV** - 影像處理與錄影
 - **SQLite** - 事件記錄
 - **LINE Notify API** - 推播通知

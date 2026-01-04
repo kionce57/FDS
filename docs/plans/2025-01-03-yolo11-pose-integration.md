@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12+, Ultralytics YOLO11, One Euro Filter
 
-**Status:** Phase A 進行中 (3/6 完成) - 最後更新 2025-01-04
+**Status:** Phase A 已完成 ✅，Phase B 待開始 - 最後更新 2025-01-04
 
 ---
 
@@ -21,6 +21,7 @@
 > **Completed:** 2025-01-04 | **Commit:** `b42ea07`
 
 **Files:**
+
 - Modify: `src/core/config.py`
 - Modify: `config/settings.yaml`
 - Test: `tests/test_config.py`
@@ -46,7 +47,7 @@ Expected: FAIL with AttributeError
 # config/settings.yaml
 detection:
   model: "yolov8n.pt"
-  pose_model: "yolo11s-pose.pt"  # 新增
+  pose_model: "yolo11s-pose.pt" # 新增
   confidence: 0.5
   classes: [0]
 ```
@@ -82,6 +83,7 @@ git commit -m "feat(config): add pose_model configuration for YOLO11 support"
 > **Completed:** 2025-01-04 | **Commit:** `630509e`
 
 **Files:**
+
 - Modify: `src/detection/detector.py`
 - Test: `tests/test_detector.py`
 
@@ -129,6 +131,7 @@ git commit -m "feat(detector): change PoseDetector default to yolo11s-pose"
 > **Completed:** 2025-01-04 | **Commit:** `e61fbcd`
 
 **Files:**
+
 - Modify: `src/lifecycle/skeleton_extractor.py`
 - Test: `tests/lifecycle/test_skeleton_extractor.py`
 
@@ -158,6 +161,7 @@ git commit -m "feat(skeleton_extractor): use yolo11s-pose as default"
 ### Task A.4: 更新測試腳本
 
 **Files:**
+
 - Modify: `scripts/test_with_video.py`
 - Modify: `scripts/save_skeleton_frames.py`
 
@@ -188,6 +192,7 @@ git commit -m "chore(scripts): update pose model to yolo11s-pose"
 ### Task A.5: 更新文件
 
 **Files:**
+
 - Modify: `CLAUDE.md`
 - Modify: `docs/TESTING_ON_WINDOWS.md`
 - Modify: `docs/PROJECT_STATUS.md`
@@ -199,10 +204,10 @@ git commit -m "chore(scripts): update pose model to yolo11s-pose"
 **Step 2: Update Detection Modes table in CLAUDE.md**
 
 ```markdown
-| Mode | Model | Rule | Output |
-|------|-------|------|--------|
-| BBox (預設) | `yolov8n.pt` | `aspect_ratio < 1.3` | `BBox(x, y, w, h, confidence, aspect_ratio)` |
-| Pose | `yolo11s-pose.pt` | `torso_angle < 60°` | `Skeleton(keypoints[17], torso_angle, confidence)` |
+| Mode        | Model             | Rule                 | Output                                             |
+| ----------- | ----------------- | -------------------- | -------------------------------------------------- |
+| BBox (預設) | `yolov8n.pt`      | `aspect_ratio < 1.3` | `BBox(x, y, w, h, confidence, aspect_ratio)`       |
+| Pose        | `yolo11s-pose.pt` | `torso_angle < 60°`  | `Skeleton(keypoints[17], torso_angle, confidence)` |
 ```
 
 **Step 3: Commit**
@@ -217,6 +222,7 @@ git commit -m "docs: update pose model references to yolo11s-pose"
 ### Task A.6: 驗證 Keypoint 格式相容性
 
 **Files:**
+
 - Create: `tests/test_yolo11_compatibility.py`
 
 **Step 1: Write compatibility test**
@@ -285,6 +291,7 @@ git commit -m "test: add YOLO11 keypoint compatibility tests"
 ### Task B.1: 實作 One Euro Filter
 
 **Files:**
+
 - Create: `src/analysis/one_euro_filter.py`
 - Test: `tests/test_one_euro_filter.py`
 
@@ -435,6 +442,7 @@ git commit -m "feat(analysis): add One Euro Filter for keypoint smoothing"
 ### Task B.2: 實作 KeypointSmoother
 
 **Files:**
+
 - Create: `src/analysis/keypoint_smoother.py`
 - Test: `tests/test_keypoint_smoother.py`
 
@@ -570,6 +578,7 @@ git commit -m "feat(analysis): add KeypointSmoother for temporal filtering"
 ### Task B.3: 整合 KeypointSmoother 至 PoseRuleEngine
 
 **Files:**
+
 - Modify: `src/analysis/pose_rule_engine.py`
 - Modify: `tests/test_pose_rule_engine.py`
 
@@ -621,6 +630,7 @@ git commit -m "feat(pose_rule_engine): integrate KeypointSmoother for jitter red
 ### Task B.4: 更新測試腳本支援 timestamp
 
 **Files:**
+
 - Modify: `scripts/test_with_video.py`
 
 **Step 1: Pass timestamp to rule engine**
@@ -643,6 +653,7 @@ git commit -m "chore(scripts): pass timestamp to pose rule engine for smoothing"
 ### Task B.5: 整合測試
 
 **Files:**
+
 - Create: `tests/integration/test_yolo11_pipeline.py`
 
 **Step 1: Write integration test**
@@ -696,19 +707,19 @@ git commit -m "test: add YOLO11 pipeline integration test with smoothing"
 
 ## Summary
 
-| Phase | Task | 複雜度 | 說明 |
-|-------|------|--------|------|
-| A | A.1 Config 擴展 | 低 | 新增 pose_model 設定 |
-| A | A.2 PoseDetector 更新 | 低 | 改預設值 |
-| A | A.3 SkeletonExtractor 更新 | 低 | 改預設值 |
-| A | A.4 Scripts 更新 | 低 | 改 hardcoded 路徑 |
-| A | A.5 文件更新 | 低 | 批量替換 |
-| A | A.6 相容性測試 | 中 | 驗證 keypoint 格式 |
-| B | B.1 One Euro Filter | 中 | 實作演算法 |
-| B | B.2 KeypointSmoother | 中 | 封裝 17 點過濾 |
-| B | B.3 PoseRuleEngine 整合 | 中 | 加入可選 smoothing |
-| B | B.4 Scripts 整合 | 低 | 傳入 timestamp |
-| B | B.5 整合測試 | 中 | 端到端驗證 |
+| Phase | Task                       | 複雜度 | 說明                 |
+| ----- | -------------------------- | ------ | -------------------- |
+| A     | A.1 Config 擴展            | 低     | 新增 pose_model 設定 |
+| A     | A.2 PoseDetector 更新      | 低     | 改預設值             |
+| A     | A.3 SkeletonExtractor 更新 | 低     | 改預設值             |
+| A     | A.4 Scripts 更新           | 低     | 改 hardcoded 路徑    |
+| A     | A.5 文件更新               | 低     | 批量替換             |
+| A     | A.6 相容性測試             | 中     | 驗證 keypoint 格式   |
+| B     | B.1 One Euro Filter        | 中     | 實作演算法           |
+| B     | B.2 KeypointSmoother       | 中     | 封裝 17 點過濾       |
+| B     | B.3 PoseRuleEngine 整合    | 中     | 加入可選 smoothing   |
+| B     | B.4 Scripts 整合           | 低     | 傳入 timestamp       |
+| B     | B.5 整合測試               | 中     | 端到端驗證           |
 
 **預估：** Phase A (6 tasks) + Phase B (5 tasks) = 11 tasks
 
