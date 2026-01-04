@@ -19,9 +19,9 @@ class CameraConfig:
 @dataclass
 class DetectionConfig:
     model: str
-    pose_model: str
     confidence: float
     classes: list[int]
+    pose_model: str = "yolo11s-pose.pt"
 
 
 @dataclass

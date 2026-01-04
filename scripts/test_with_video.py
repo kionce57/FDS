@@ -98,7 +98,12 @@ def draw_skeleton(frame: np.ndarray, skeleton: Skeleton | None, state: FallState
     return frame
 
 
-def test_video(video_path: str, show_window: bool = True, use_pose: bool = False) -> int:
+def test_video(
+    video_path: str,
+    show_window: bool = True,
+    use_pose: bool = False,
+    enable_smoothing: bool = False,
+) -> int:
     """使用影片測試跌倒偵測"""
 
     # 開啟影片
@@ -110,11 +115,16 @@ def test_video(video_path: str, show_window: bool = True, use_pose: bool = False
     fps = cap.get(cv2.CAP_PROP_FPS) or 15
     logger.info(f"影片 FPS: {fps}")
     logger.info(f"偵測模式: {'Pose (骨架)' if use_pose else 'BBox (長寬比)'}")
+    if use_pose and enable_smoothing:
+        logger.info("Keypoint 平滑: 已啟用 (One Euro Filter)")
 
     # 初始化模組
     if use_pose:
         detector = PoseDetector(model_path="yolo11s-pose.pt", confidence=0.5)
-        rule_engine = PoseRuleEngine(torso_angle_threshold=60.0)
+        rule_engine = PoseRuleEngine(
+            torso_angle_threshold=60.0,
+            enable_smoothing=enable_smoothing,
+        )
     else:
         detector = Detector(model_path="yolo11n.pt", confidence=0.5, classes=[0])
         rule_engine = RuleEngine(fall_threshold=1.3)
@@ -144,8 +154,11 @@ def test_video(video_path: str, show_window: bool = True, use_pose: bool = False
             detections = detector.detect(frame)
             detection = detections[0] if detections else None
 
-            # 判斷是否跌倒
-            is_fallen = rule_engine.is_fallen(detection)
+            # 判斷是否跌倒（Pose 模式需傳入 timestamp 以支援 smoothing）
+            if use_pose:
+                is_fallen = rule_engine.is_fallen(detection, timestamp=current_time)
+            else:
+                is_fallen = rule_engine.is_fallen(detection)
 
             # 更新狀態機
             state = delay_confirm.update(is_fallen=is_fallen, current_time=current_time)
@@ -229,9 +242,19 @@ def main() -> int:
     parser.add_argument(
         "--use-pose", action="store_true", help="使用骨架姿態偵測（預設使用 BBox 長寬比）"
     )
+    parser.add_argument(
+        "--enable-smoothing",
+        action="store_true",
+        help="啟用 Keypoint 平滑 (One Euro Filter)，減少抖動 (僅 Pose 模式)",
+    )
     args = parser.parse_args()
 
-    return test_video(args.video, show_window=not args.no_window, use_pose=args.use_pose)
+    return test_video(
+        args.video,
+        show_window=not args.no_window,
+        use_pose=args.use_pose,
+        enable_smoothing=args.enable_smoothing,
+    )
 
 
 if __name__ == "__main__":
