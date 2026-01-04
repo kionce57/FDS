@@ -13,6 +13,7 @@ camera:
 
 detection:
   model: "yolov8n.pt"
+  pose_model: "yolo11s-pose.pt"
   confidence: 0.5
   classes: [0]
 
@@ -70,6 +71,12 @@ cloud_sync:
         assert config.analysis.delay_sec == 3.0
         assert config.analysis.same_event_window == 60.0
 
+    def test_config_has_pose_model(self, config_file):
+        """Verify DetectionConfig has pose_model field for YOLO11 support."""
+        config = load_config(str(config_file))
+        assert hasattr(config.detection, "pose_model")
+        assert config.detection.pose_model == "yolo11s-pose.pt"
+
     def test_config_loads_cloud_sync_section(self, config_file):
         """Verify CloudSyncConfig is loaded correctly"""
         config = load_config(str(config_file))
@@ -92,6 +99,7 @@ camera:
 
 detection:
   model: "yolov8n.pt"
+  pose_model: "yolo11s-pose.pt"
   confidence: 0.5
   classes: [0]
 

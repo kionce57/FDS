@@ -8,6 +8,7 @@ camera:
 
 detection:
   model: "yolov8n.pt"
+  pose_model: "yolo11s-pose.pt"
   confidence: 0.5
   classes: [0]
 
