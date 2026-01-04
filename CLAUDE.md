@@ -17,8 +17,9 @@ uv sync --all-extras       # 包含 dev 依賴
 
 # 執行
 uv run python main.py                              # 即時偵測
-uv run python -m scripts.test_with_video <path>    # 影片測試
-uv run python -m scripts.test_with_video --use-pose <path>  # Pose 模式
+uv run python -m scripts.test_with_video <path>    # 影片測試 (BBox 模式)
+uv run python -m scripts.test_with_video <path> --use-pose                 # Pose 模式
+uv run python -m scripts.test_with_video <path> --use-pose --enable-smoothing  # Pose + 平滑
 uv run python -m src.web.app                       # Web Dashboard (port 8000)
 
 # 測試
@@ -64,6 +65,25 @@ Camera → Detector → RuleEngine → DelayConfirm → Observers
 | Pose | `yolo11s-pose.pt` | `torso_angle < 60°` | `Skeleton(keypoints[17], torso_angle, confidence)` |
 
 > **Note:** Pose 模式已從 YOLOv8n-Pose 升級至 YOLO11s-Pose，提供更佳的穩定性。可透過 `config/settings.yaml` 的 `detection.pose_model` 設定自訂模型路徑。
+
+### Keypoint Smoothing (src/analysis/smoothing/)
+
+Pose 模式可選啟用 **One Euro Filter** 平滑關鍵點，減少抖動造成的誤判：
+
+```python
+# PoseRuleEngine 支援平滑參數
+rule_engine = PoseRuleEngine(
+    torso_angle_threshold=60.0,
+    enable_smoothing=True,      # 啟用平滑
+    smoothing_min_cutoff=1.0,   # 越低越平滑
+    smoothing_beta=0.007,       # 越高對快速動作反應越快
+)
+
+# 需傳入 timestamp 以計算濾波
+is_fallen = rule_engine.is_fallen(skeleton, timestamp=current_time)
+```
+
+CLI 使用: `--enable-smoothing` 旗標
 
 ### State Machine (src/analysis/delay_confirm.py)
 
@@ -111,6 +131,8 @@ class FallEventObserver(Protocol):
 | `FallEvent` | `src/events/observer.py` | 跌倒事件 metadata |
 | `SuspectedEvent` | `src/events/observer.py` | 疑似跌倒事件（含 outcome 標籤） |
 | `SkeletonSequence` | `src/lifecycle/schema/` | 骨架 JSON 序列化格式 |
+| `OneEuroFilter` | `src/analysis/smoothing/` | 自適應低通濾波器 |
+| `KeypointSmoother` | `src/analysis/smoothing/` | 17 關鍵點平滑器 |
 
 ## CLI Entry Points
 

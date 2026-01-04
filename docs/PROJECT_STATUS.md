@@ -1,7 +1,7 @@
 # FDS 專案狀態文檔
 
 > 最後更新：2025-01-04
-> 更新者：Claude Opus 4.5 (YOLO11-Pose Integration In Progress)
+> 更新者：Claude Opus 4.5 (YOLO11-Pose Integration Complete)
 
 本文檔提供完整的專案狀態，供後續開發者快速了解並繼續開發。
 
@@ -348,38 +348,59 @@ src/
 - **測試結果:** 206 個測試（新增 10 個），202 passed, 4 failed（pre-existing GCP 問題）
 - **設計文檔:** `docs/plans/2025-12-31-skeleton-observer-extension.md`
 
-#### Task 21: YOLO11-Pose Integration 🔄 進行中
+#### Task 21: YOLO11-Pose Integration ✅
 - **日期：** 2025-01-04
-- **狀態：** 🔄 Phase A 進行中（3/6 tasks 完成）
+- **狀態：** ✅ 已完成（Phase A + Phase B）
 - **目標：** 將 Pose 模型從 YOLOv8n-Pose 升級至 YOLO11s-Pose，並加入時序過濾
 
-**已完成的 Commits:**
+**Commits:**
 1. `b42ea07` - feat(config): add pose_model configuration for YOLO11 support
 2. `630509e` - feat(detector): change PoseDetector default to yolo11s-pose
 3. `e61fbcd` - feat(skeleton_extractor): use yolo11s-pose as default
+4. `2e1c7c3` - docs: update documentation for YOLO11-Pose integration
+5. `24c3a7d` - feat(detector): upgrade BBox detector from yolov8n to yolo11n
+6. `5311ce4` - fix(docker): update model references from yolov8 to yolo11
+7. `b36d152` - fix: update remaining yolov8 references to yolo11
+8. `abc3e52` - test(yolo11): add keypoint compatibility tests
+9. `6b3e52c` - feat(smoothing): add One Euro Filter for keypoint smoothing
 
-**Phase A 進度（配置化 + 模型切換）:**
+**Phase A（配置化 + 模型切換）:**
 - ✅ A.1: Config 新增 `pose_model` 設定
 - ✅ A.2: PoseDetector 改用 yolo11s-pose 預設
 - ✅ A.3: SkeletonExtractor 改用 yolo11s-pose 預設
-- 🔲 A.4: 測試腳本更新 (test_with_video, save_skeleton_frames)
-- 🔲 A.5: 文件更新 (CLAUDE.md, docs/)
-- 🔲 A.6: Keypoint 格式相容性測試
+- ✅ A.4: 測試腳本更新 (test_with_video, save_skeleton_frames)
+- ✅ A.5: 文件更新 (CLAUDE.md, docs/)
+- ✅ A.6: Keypoint 格式相容性測試（11 個測試）
 
-**Phase B 進度（KeypointSmoother 時序過濾）:**
-- 🔲 B.1: 實作 One Euro Filter
-- 🔲 B.2: 實作 KeypointSmoother
-- 🔲 B.3: 整合至 PoseRuleEngine
-- 🔲 B.4: 測試腳本傳入 timestamp
-- 🔲 B.5: 端到端整合測試
+**Phase B（KeypointSmoother 時序過濾）:**
+- ✅ B.1: 實作 One Euro Filter (`src/analysis/smoothing/one_euro_filter.py`)
+- ✅ B.2: 實作 KeypointSmoother (`src/analysis/smoothing/keypoint_smoother.py`)
+- ✅ B.3: 整合至 PoseRuleEngine（新增 `enable_smoothing`, `timestamp` 參數）
+- ✅ B.4: 測試腳本傳入 timestamp（新增 `--enable-smoothing` CLI 旗標）
+- ✅ B.5: 端到端整合測試（`tests/integration/test_yolo11_pipeline.py`）
 
-**修改檔案:**
-- `src/core/config.py` - 新增 `pose_model: str` 欄位
-- `config/settings.yaml` - 新增 `detection.pose_model: "yolo11s-pose.pt"`
-- `src/detection/detector.py` - PoseDetector 預設改為 yolo11s-pose.pt
-- `src/lifecycle/skeleton_extractor.py` - 預設改為 yolo11s-pose.pt，engine 改為 yolo11
-- `config/skeleton_schema.json` - 新增 yolo11 至 engine enum
+**新增檔案:**
+```
+src/analysis/smoothing/
+├── __init__.py
+├── one_euro_filter.py    # One Euro Filter 實作
+└── keypoint_smoother.py  # 17 關鍵點平滑器
+tests/
+├── test_smoothing.py              # 14 個測試
+├── test_yolo11_compatibility.py   # 11 個測試
+└── integration/test_yolo11_pipeline.py  # 5 個測試
+```
 
+**使用方式:**
+```bash
+# Pose 模式
+uv run python -m scripts.test_with_video video.mp4 --use-pose
+
+# Pose + Keypoint 平滑（減少抖動）
+uv run python -m scripts.test_with_video video.mp4 --use-pose --enable-smoothing
+```
+
+**測試結果:** 234 個測試通過
 **詳細計畫:** `docs/plans/2025-01-03-yolo11-pose-integration.md`
 
 ---

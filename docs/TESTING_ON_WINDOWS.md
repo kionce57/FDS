@@ -216,6 +216,9 @@ uv run python -m scripts.test_with_video tests/fixtures/videos/fall-01-cam0.mp4 
 # BBox 長寬比模式（預設）
 uv run python -m scripts.test_with_video tests/fixtures/videos/fall-01-cam0.mp4
 
+# Pose 模式 + Keypoint 平滑（減少抖動）
+uv run python -m scripts.test_with_video tests/fixtures/videos/fall-01-cam0.mp4 --use-pose --enable-smoothing
+
 # 無視窗純 CLI 模式
 uv run python -m scripts.test_with_video tests/fixtures/videos/fall-01-cam0.mp4 --use-pose --no-window
 ```
