@@ -69,7 +69,7 @@ temp/
 !.env.example
 
 # Large model files (如果已經在 container 內就不需要重複複製)
-# 注意: yolov8n-pose.pt 需要被複製，所以不要排除
+# 注意: yolo11n.pt 和 yolo11s-pose.pt 需要被複製，所以不要排除
 
 # Lock files for other package managers
 package-lock.json

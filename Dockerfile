@@ -66,7 +66,9 @@ COPY --chown=fds:fds src/ ./src/
 COPY --chown=fds:fds scripts/ ./scripts/
 COPY --chown=fds:fds main.py pyproject.toml README.md ./
 COPY --chown=fds:fds config/ ./config/
-COPY --chown=fds:fds yolov8n-pose.pt ./
+# YOLO11 models (download before build or let Ultralytics auto-download at runtime)
+# Models: yolo11n.pt (BBox), yolo11s-pose.pt (Pose)
+COPY --chown=fds:fds yolo11*.pt ./
 
 # Switch to non-root user
 USER fds
