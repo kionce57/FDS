@@ -65,7 +65,7 @@ def test_video(video_path: str, show_window: bool = True):
     logger.info(f"影片 FPS: {fps}")
 
     # 初始化模組
-    detector = Detector(model_path="yolov8n.pt", confidence=0.5, classes=[0])
+    detector = Detector(model_path="yolo11n.pt", confidence=0.5, classes=[0])
     rule_engine = RuleEngine(fall_threshold=1.3)
     delay_confirm = DelayConfirm(delay_sec=3.0)
     rolling_buffer = RollingBuffer(buffer_seconds=10.0, fps=fps)

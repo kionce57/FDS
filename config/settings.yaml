@@ -7,7 +7,7 @@ camera:
   resolution: [640, 480]
 
 detection:
-  model: "yolov8n.pt"
+  model: "yolo11n.pt"
   pose_model: "yolo11s-pose.pt"
   confidence: 0.5
   classes: [0]

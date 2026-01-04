@@ -568,8 +568,8 @@ camera:
   fps: 15
 
 detection:
-  model: "yolov8n.pt"          # BBox 模式
-  pose_model: "yolo11s-pose.pt" # Pose 模式（新增）
+  model: "yolo11n.pt"          # BBox 模式（已升級至 YOLO11）
+  pose_model: "yolo11s-pose.pt" # Pose 模式（已升級至 YOLO11）
   confidence: 0.5
 
 analysis:

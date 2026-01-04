@@ -113,10 +113,10 @@ def test_video(video_path: str, show_window: bool = True, use_pose: bool = False
 
     # 初始化模組
     if use_pose:
-        detector = PoseDetector(model_path="yolov8n-pose.pt", confidence=0.5)
+        detector = PoseDetector(model_path="yolo11s-pose.pt", confidence=0.5)
         rule_engine = PoseRuleEngine(torso_angle_threshold=60.0)
     else:
-        detector = Detector(model_path="yolov8n.pt", confidence=0.5, classes=[0])
+        detector = Detector(model_path="yolo11n.pt", confidence=0.5, classes=[0])
         rule_engine = RuleEngine(fall_threshold=1.3)
 
     delay_confirm = DelayConfirm(delay_sec=3.0)

@@ -60,7 +60,7 @@ Camera → Detector → RuleEngine → DelayConfirm → Observers
 
 | Mode | Model | Rule | Output |
 |------|-------|------|--------|
-| BBox (預設) | `yolov8n.pt` | `aspect_ratio < 1.3` | `BBox(x, y, w, h, confidence, aspect_ratio)` |
+| BBox (預設) | `yolo11n.pt` | `aspect_ratio < 1.3` | `BBox(x, y, w, h, confidence, aspect_ratio)` |
 | Pose | `yolo11s-pose.pt` | `torso_angle < 60°` | `Skeleton(keypoints[17], torso_angle, confidence)` |
 
 > **Note:** Pose 模式已從 YOLOv8n-Pose 升級至 YOLO11s-Pose，提供更佳的穩定性。可透過 `config/settings.yaml` 的 `detection.pose_model` 設定自訂模型路徑。
@@ -124,7 +124,7 @@ class FallEventObserver(Protocol):
 
 ## Important Notes
 
-- **Model files:** 首次執行自動下載 `yolov8n.pt` / `yolo11s-pose.pt`
+- **Model files:** 首次執行自動下載 `yolo11n.pt` / `yolo11s-pose.pt`
 - **Data directory:** `data/` 由 gitignore，包含 `fds.db`, `clips/`, `skeletons/`
 - **Camera source:** 開發用影片測試，正式環境改 camera index 或 RTSP URL
 - **LINE Bot:** 配置缺失時通知失敗但不會 crash Pipeline
