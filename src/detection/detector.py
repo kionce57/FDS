@@ -43,11 +43,11 @@ class Detector:
 
 
 class PoseDetector:
-    """YOLOv8 Pose detector that returns skeleton keypoints."""
+    """YOLO Pose detector that returns skeleton keypoints."""
 
     def __init__(
         self,
-        model_path: str = "yolov8n-pose.pt",
+        model_path: str = "yolo11s-pose.pt",
         confidence: float = 0.5,
     ):
         self.model = YOLO(model_path)
