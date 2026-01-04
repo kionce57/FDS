@@ -55,7 +55,7 @@
           "properties": {
             "engine": {
               "type": "string",
-              "enum": ["yolov8", "mediapipe"],
+              "enum": ["yolov8", "yolo11", "mediapipe"],
               "description": "骨架提取引擎"
             },
             "model": {

@@ -104,8 +104,8 @@ class TestSkeletonExtractor:
 
             assert result.metadata.fps == 15
             assert result.metadata.total_frames == 10
-            assert result.metadata.extractor.engine == "yolov8"
-            assert "yolov8n-pose" in result.metadata.extractor.model
+            assert result.metadata.extractor.engine == "yolo11"
+            assert "pose" in result.metadata.extractor.model
 
     def test_extract_converts_skeleton_to_coco17_keypoints(self, extractor, mock_skeleton):
         """測試 Skeleton 正確轉換為 COCO17 格式"""

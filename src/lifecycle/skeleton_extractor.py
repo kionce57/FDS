@@ -35,11 +35,11 @@ class SkeletonExtractor:
         >>> extractor.extract_and_save("data/clips/evt_123.mp4", "data/skeletons/evt_123.json")
     """
 
-    def __init__(self, model_path: str = "yolov8n-pose.pt"):
+    def __init__(self, model_path: str = "yolo11s-pose.pt"):
         """初始化骨架提取器
 
         Args:
-            model_path: YOLOv8 Pose 模型路徑
+            model_path: YOLO Pose 模型路徑
         """
         self.model_path = model_path
         self.detector = PoseDetector(model_path=model_path, confidence=0.5)
@@ -90,7 +90,7 @@ class SkeletonExtractor:
                 fps=fps,
                 total_frames=total_frames,
                 extractor=ExtractorMetadata(
-                    engine="yolov8", model=self.model_path, version="8.0.0"
+                    engine="yolo11", model=self.model_path, version="11.0.0"
                 ),
             )
 
@@ -234,7 +234,7 @@ class SkeletonExtractor:
                     fps=int(fps),
                     total_frames=0,
                     extractor=ExtractorMetadata(
-                        engine="yolov8", model=self.model_path, version="8.0.0"
+                        engine="yolo11", model=self.model_path, version="11.0.0"
                     ),
                 ),
                 keypoint_format="coco17",
@@ -253,7 +253,7 @@ class SkeletonExtractor:
             duration_sec=duration_sec,
             fps=int(fps),
             total_frames=len(frames),
-            extractor=ExtractorMetadata(engine="yolov8", model=self.model_path, version="8.0.0"),
+            extractor=ExtractorMetadata(engine="yolo11", model=self.model_path, version="11.0.0"),
         )
 
         sequence = []
