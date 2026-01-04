@@ -214,49 +214,13 @@ src/
   - 常見問題排除
   - 測試檢查清單
 
-#### Task 19: Web Dashboard ✅
+#### ~~Task 19: Web Dashboard~~ (已移除)
 
-- **日期：** 2025-12-29
-- **技術棧：** FastAPI + Jinja2 + RESTful API
-- **檔案結構：**
-  ```
-  src/web/
-  ├── __init__.py
-  ├── app.py              # FastAPI 應用程式
-  ├── routes/
-  │   ├── api.py          # RESTful API
-  │   └── pages.py        # 頁面路由
-  ├── services/
-  │   └── event_service.py  # 資料庫服務
-  ├── templates/          # Jinja2 模板
-  │   ├── base.html
-  │   ├── dashboard.html
-  │   ├── events.html
-  │   └── event_detail.html
-  └── static/
-      ├── css/style.css   # 深色主題
-      └── js/main.js
-  ```
-- **API 端點：**
-  - `GET /api/status` - 系統狀態
-  - `GET /api/stats` - 事件統計
-  - `GET /api/events` - 事件列表（分頁）
-  - `GET /api/events/{id}` - 事件詳情
-  - `GET /api/events/{id}/clip` - 影片串流
-  - `DELETE /api/events/{id}` - 刪除事件
-- **頁面：**
-  - `/` - 儀表板首頁
-  - `/events` - 事件列表
-  - `/events/{id}` - 事件詳情 + 影片播放
-  - `/docs` - Swagger API 文檔（自動生成）
-- **啟動方式：**
-  ```bash
-  uv run python scripts/run_web.py
-  # 或
-  uv run fds-web
-  ```
-- **依賴：** fastapi, uvicorn, jinja2, httpx
-- **測試結果：** 所有 API 和頁面返回 HTTP 200
+- **日期：** 2025-12-29 建立，**2025-01-04 移除**
+- **狀態：** ❌ 已移除（Task 22）
+- **原因：** 簡化專案架構，專注於核心跌倒偵測功能
+- **移除的檔案：** `src/web/`, `Dockerfile.web`, `scripts/run_web.py`
+- **移除的依賴：** fastapi, uvicorn, jinja2, python-multipart, httpx
 
 #### Task 18: Cloud Sync ✅
 
@@ -419,33 +383,34 @@ src/
 - ✅ Automated Cleanup Scheduling
 - ✅ Docker Containerization
 - ✅ Testing Documentation
-- ✅ Web Dashboard
+- ~~✅ Web Dashboard~~ (已移除)
 - ✅ Cloud Sync
 - ✅ Skeleton Observer Extension（2025-12-31 新增）
 
 ### Phase 3 候選功能（規劃中）
 
-#### Task 22: 移除 Web Server 服務 ⏳ (優先級：最高)
+#### Task 22: 移除 Web Server 服務 ✅
 
-- **狀態：** ⏳ 待 Task 21 完成後執行
+- **日期：** 2025-01-04
+- **狀態：** ✅ 已完成
 - **目標：** 完全移除專案中的 Web Server 相關程式碼與依賴
 - **原因：** 簡化專案架構，專注於核心跌倒偵測功能
 
-**待移除項目：**
+**已移除項目：**
 
 - `src/web/` 目錄（整個刪除）
 - `Dockerfile.web`
 - `docker-compose.yml` 中的 web 服務定義
 - `pyproject.toml` 中的 `fds-web` 入口點
-- `pyproject.toml` 中的 web 相關依賴（fastapi, uvicorn, jinja2, httpx）
+- `pyproject.toml` 中的 web 相關依賴（fastapi, uvicorn, jinja2, python-multipart, httpx）
 - `scripts/run_web.py`
 - 文件中所有 Web Dashboard 相關說明
 
-**驗證項目：**
+**驗證結果：**
 
-- 確認無殘留 import 語句
-- 確認測試仍全數通過
-- 確認 Docker 建構正常
+- ✅ 無殘留 import 語句
+- ✅ 241 個測試通過（2 個失敗為預存的 GCP 認證問題）
+- ✅ `uv sync` 正常
 
 #### ~~自動化排程（已完成）~~
 
@@ -453,10 +418,10 @@ src/
 - **實作：** APScheduler BackgroundScheduler 整合至 `main.py`
 - **相關檔案：** `src/lifecycle/cleanup_scheduler.py`
 
-#### ~~Web 儀表板（已完成）~~
+#### ~~Web 儀表板（已移除）~~
 
-- **狀態：** ✅ 已於 2025-12-29 完成
-- **說明：** FastAPI + Jinja2，詳見 Task 19
+- **狀態：** ❌ 已於 2025-01-04 移除
+- **說明：** 詳見 Task 22
 
 #### ~~Cloud Sync（已完成）~~
 

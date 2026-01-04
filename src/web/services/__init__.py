@@ -1,3 +1,0 @@
-"""
-FDS Web Services Module
-"""

@@ -14,7 +14,6 @@
 - 💾 **事件記錄** - SQLite 儲存所有事件 metadata
 - 🔄 **重複通知** - 持續躺著時每 2 分鐘重複通知
 - ☁️ **雲端備份** - 骨架 JSON 自動上傳至 GCP Cloud Storage
-- 🌐 **Web 儀表板** - 本地網頁查看歷史事件與影片播放
 
 ## 系統架構
 
@@ -221,7 +220,6 @@ FDS/
 - **OpenCV** - 影像處理與錄影
 - **SQLite** - 事件記錄
 - **LINE Notify API** - 推播通知
-- **FastAPI + Jinja2** - Web 儀表板
 - **GCP Cloud Storage** - 雲端備份
 - **pytest** - 測試框架
 - **ruff** - Linting & Formatting

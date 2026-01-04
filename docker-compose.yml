@@ -1,7 +1,6 @@
 # FDS (Fall Detection System) Docker Compose Configuration
 # 使用方法:
-#   啟動全部:   docker compose up -d
-#   只啟動 Web: docker compose up fds-web
+#   啟動服務:   docker compose up -d
 #   清理任務:   docker compose --profile cleanup run --rm fds-cleanup
 #   重新建置:   docker compose build (程式碼改動後通常 < 30 秒)
 
@@ -18,7 +17,7 @@ x-common-env: &common-env
 
 services:
   # ----------------------------------------------------------
-  # 主應用程式 - Fall Detection Pipeline (Heavy Image)
+  # 主應用程式 - Fall Detection Pipeline
   # ----------------------------------------------------------
   fds:
     build:
@@ -38,7 +37,7 @@ services:
     #    - 保持 `devices` 註解
     #    - 確保 `volumes` 有掛載 ./tests:/app/tests:ro
     #    - 修改 config/settings.yaml 的 camera.source 為影片路徑
-    
+
     # devices:
     #   - /dev/video0:/dev/video0
 
@@ -50,18 +49,17 @@ services:
       - ./config:/app/config:ro
       - ./logs:/app/logs
       - ./tests:/app/tests:ro
-      # 掛載原始碼以便部分修改不用重啟 (Python 緩存可能有影響，但 pyc 已停用)
-      - ./src:/app/src:ro 
+      - ./src:/app/src:ro
 
     restart: unless-stopped
 
     deploy:
       resources:
         limits:
-          cpus: '2.0'
+          cpus: "2.0"
           memory: 2G
         reservations:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 1G
 
     logging: *default-logging
@@ -72,42 +70,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-
-  # ----------------------------------------------------------
-  # Web Dashboard - FastAPI Frontend (Lightweight Image)
-  # ----------------------------------------------------------
-  fds-web:
-    build:
-      context: .
-      dockerfile: Dockerfile.web  # Separate lightweight build
-    image: fds-web:latest
-    container_name: fds-web
-
-    command: ["python", "-m", "src.web.app"]
-
-    environment:
-      <<: *common-env
-
-    volumes:
-      - ./data:/app/data
-      - ./config:/app/config:ro
-      - ./logs:/app/logs
-      # 關鍵修正: 掛載 src 目錄，讓靜態檔案修改即時生效！
-      - ./src:/app/src:ro
-
-    ports:
-      - "8000:8000"
-
-    restart: unless-stopped
-
-    logging: *default-logging
-
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
 
   # ----------------------------------------------------------
   # 清理排程器 - 使用主程式映像

@@ -20,7 +20,6 @@ uv run python main.py                              # 即時偵測
 uv run python -m scripts.test_with_video <path>    # 影片測試 (BBox 模式)
 uv run python -m scripts.test_with_video <path> --use-pose                 # Pose 模式
 uv run python -m scripts.test_with_video <path> --use-pose --enable-smoothing  # Pose + 平滑
-uv run python -m src.web.app                       # Web Dashboard (port 8000)
 
 # 測試
 uv run pytest                                      # 全部測試
@@ -50,6 +49,7 @@ Camera → Detector → RuleEngine → DelayConfirm → Observers
 ```
 
 **關鍵流程:**
+
 1. `Camera.read()` 擷取影像幀
 2. `Detector.detect()` 執行 YOLO 推論 → 回傳 BBox 或 Skeleton
 3. `RuleEngine.is_fallen()` 套用規則（長寬比 < 1.3 或軀幹角度 < 60°）
@@ -59,10 +59,10 @@ Camera → Detector → RuleEngine → DelayConfirm → Observers
 
 ### Detection Modes
 
-| Mode | Model | Rule | Output |
-|------|-------|------|--------|
-| BBox (預設) | `yolo11n.pt` | `aspect_ratio < 1.3` | `BBox(x, y, w, h, confidence, aspect_ratio)` |
-| Pose | `yolo11s-pose.pt` | `torso_angle < 60°` | `Skeleton(keypoints[17], torso_angle, confidence)` |
+| Mode        | Model             | Rule                 | Output                                             |
+| ----------- | ----------------- | -------------------- | -------------------------------------------------- |
+| BBox (預設) | `yolo11n.pt`      | `aspect_ratio < 1.3` | `BBox(x, y, w, h, confidence, aspect_ratio)`       |
+| Pose        | `yolo11s-pose.pt` | `torso_angle < 60°`  | `Skeleton(keypoints[17], torso_angle, confidence)` |
 
 > **Note:** Pose 模式已從 YOLOv8n-Pose 升級至 YOLO11s-Pose，提供更佳的穩定性。可透過 `config/settings.yaml` 的 `detection.pose_model` 設定自訂模型路徑。
 
@@ -96,6 +96,7 @@ CONFIRMED → is_fallen=True + elapsed >= 120s → re-notify
 ```
 
 **Event Window Logic:**
+
 - `same_event_window=60s`: 60 秒內視為同一跌倒事件
 - `re_notify_interval=120s`: 持續躺著時每 2 分鐘重複通知
 
@@ -112,6 +113,7 @@ class FallEventObserver(Protocol):
 ### Skeleton Collection (src/lifecycle/skeleton_collector.py)
 
 自動訂閱 SUSPECTED 事件，outcome 確定後提取骨架：
+
 - `CONFIRMED` → `sus_xxx_confirmed.json` (正樣本)
 - `CLEARED` → `sus_xxx_cleared.json` (負樣本)
 
@@ -123,26 +125,25 @@ class FallEventObserver(Protocol):
 
 ## Key Data Structures
 
-| 結構 | 位置 | 用途 |
-|------|------|------|
-| `BBox` | `src/detection/bbox.py` | Bounding box + aspect_ratio |
-| `Skeleton` | `src/detection/skeleton.py` | 17 keypoints + torso_angle |
-| `FrameData` | `src/capture/rolling_buffer.py` | 幀資料（含 timestamp, bbox） |
-| `FallEvent` | `src/events/observer.py` | 跌倒事件 metadata |
-| `SuspectedEvent` | `src/events/observer.py` | 疑似跌倒事件（含 outcome 標籤） |
-| `SkeletonSequence` | `src/lifecycle/schema/` | 骨架 JSON 序列化格式 |
-| `OneEuroFilter` | `src/analysis/smoothing/` | 自適應低通濾波器 |
-| `KeypointSmoother` | `src/analysis/smoothing/` | 17 關鍵點平滑器 |
+| 結構               | 位置                            | 用途                            |
+| ------------------ | ------------------------------- | ------------------------------- |
+| `BBox`             | `src/detection/bbox.py`         | Bounding box + aspect_ratio     |
+| `Skeleton`         | `src/detection/skeleton.py`     | 17 keypoints + torso_angle      |
+| `FrameData`        | `src/capture/rolling_buffer.py` | 幀資料（含 timestamp, bbox）    |
+| `FallEvent`        | `src/events/observer.py`        | 跌倒事件 metadata               |
+| `SuspectedEvent`   | `src/events/observer.py`        | 疑似跌倒事件（含 outcome 標籤） |
+| `SkeletonSequence` | `src/lifecycle/schema/`         | 骨架 JSON 序列化格式            |
+| `OneEuroFilter`    | `src/analysis/smoothing/`       | 自適應低通濾波器                |
+| `KeypointSmoother` | `src/analysis/smoothing/`       | 17 關鍵點平滑器                 |
 
 ## CLI Entry Points
 
-| Command | Module | 用途 |
-|---------|--------|------|
-| `fds` | `main:main` | 主程式（即時偵測） |
-| `fds-test-video` | `scripts.test_with_video:main` | 影片測試 |
-| `fds-cleanup` | `scripts.cleanup_clips:main` | 清理過期檔案 |
-| `fds-web` | `src.web.app:main` | Web Dashboard |
-| `fds-cloud-sync` | `scripts.cloud_sync:main` | 骨架上傳 GCS |
+| Command          | Module                         | 用途               |
+| ---------------- | ------------------------------ | ------------------ |
+| `fds`            | `main:main`                    | 主程式（即時偵測） |
+| `fds-test-video` | `scripts.test_with_video:main` | 影片測試           |
+| `fds-cleanup`    | `scripts.cleanup_clips:main`   | 清理過期檔案       |
+| `fds-cloud-sync` | `scripts.cloud_sync:main`      | 骨架上傳 GCS       |
 
 ## Important Notes
 
@@ -153,4 +154,5 @@ class FallEventObserver(Protocol):
 - **Cleanup:** `lifecycle.clip_retention_days=7`，使用 `fds-cleanup` 執行
 
 ## Output
+
 - 總是使用英文思考, 使用繁體中文進行輸出
