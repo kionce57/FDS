@@ -4,12 +4,14 @@ import time
 import numpy as np
 
 from src.analysis.delay_confirm import DelayConfirm, FallState
+from src.analysis.pose_rule_engine import PoseRuleEngine
 from src.analysis.rule_engine import RuleEngine
 from src.capture.camera import Camera
 from src.capture.rolling_buffer import FrameData, RollingBuffer
 from src.core.config import Config
 from src.detection.bbox import BBox
-from src.detection.detector import Detector
+from src.detection.detector import Detector, PoseDetector
+from src.detection.skeleton import Skeleton
 from src.events.clip_recorder import ClipRecorder
 from src.events.event_logger import EventLogger
 from src.events.notifier import LineNotifier
@@ -21,6 +23,7 @@ logger = logging.getLogger(__name__)
 class Pipeline:
     def __init__(self, config: Config, db_path: str = "data/fds.db"):
         self.config = config
+        self._use_pose = config.detection.use_pose
 
         self.camera = Camera(
             source=config.camera.source,
@@ -28,13 +31,25 @@ class Pipeline:
             resolution=(config.camera.resolution[0], config.camera.resolution[1]),
         )
 
-        self.detector = Detector(
-            model_path=config.detection.model,
-            confidence=config.detection.confidence,
-            classes=config.detection.classes,
-        )
-
-        self.rule_engine = RuleEngine(fall_threshold=config.analysis.fall_threshold)
+        # Select detector and rule engine based on mode
+        if self._use_pose:
+            self.detector: Detector | PoseDetector = PoseDetector(
+                model_path=config.detection.pose_model,
+                confidence=config.detection.confidence,
+            )
+            self.rule_engine: RuleEngine | PoseRuleEngine = PoseRuleEngine(
+                torso_angle_threshold=config.analysis.fall_threshold,
+                enable_smoothing=config.detection.enable_smoothing,
+                smoothing_min_cutoff=config.detection.smoothing_min_cutoff,
+                smoothing_beta=config.detection.smoothing_beta,
+            )
+        else:
+            self.detector = Detector(
+                model_path=config.detection.model,
+                confidence=config.detection.confidence,
+                classes=config.detection.classes,
+            )
+            self.rule_engine = RuleEngine(fall_threshold=config.analysis.fall_threshold)
 
         self.delay_confirm = DelayConfirm(
             delay_sec=config.analysis.delay_sec,
@@ -59,7 +74,7 @@ class Pipeline:
         self.delay_confirm.add_observer(self.notifier)
         self.delay_confirm.add_observer(self)
 
-        self._current_bbox: BBox | None = None
+        self._current_detection: BBox | Skeleton | None = None
 
     def on_fall_confirmed(self, event: FallEvent) -> None:
         frames = self.rolling_buffer.get_clip(
@@ -77,20 +92,25 @@ class Pipeline:
         logger.info(f"Fall recovered: {event.event_id}")
 
     def process_frame(self, frame: np.ndarray, current_time: float) -> FallState:
-        bboxes = self.detector.detect(frame)
+        detections = self.detector.detect(frame)
+        self._current_detection = detections[0] if detections else None
 
-        self._current_bbox = bboxes[0] if bboxes else None
-
-        is_fallen = self.rule_engine.is_fallen(self._current_bbox)
-
-        bbox_tuple = None
-        if self._current_bbox:
-            bbox_tuple = (
-                self._current_bbox.x,
-                self._current_bbox.y,
-                self._current_bbox.width,
-                self._current_bbox.height,
+        # Pose mode requires timestamp for smoothing
+        if self._use_pose:
+            is_fallen = self.rule_engine.is_fallen(
+                self._current_detection, timestamp=current_time  # type: ignore[arg-type]
             )
+            bbox_tuple = None  # Pose mode doesn't track bbox
+        else:
+            is_fallen = self.rule_engine.is_fallen(self._current_detection)  # type: ignore[arg-type]
+            bbox_tuple = None
+            if self._current_detection and isinstance(self._current_detection, BBox):
+                bbox_tuple = (
+                    self._current_detection.x,
+                    self._current_detection.y,
+                    self._current_detection.width,
+                    self._current_detection.height,
+                )
 
         frame_data = FrameData(
             timestamp=current_time,
@@ -104,7 +124,10 @@ class Pipeline:
         return state
 
     def run(self) -> None:
-        logger.info("Starting fall detection pipeline...")
+        mode = "Pose" if self._use_pose else "BBox"
+        logger.info(f"Starting fall detection pipeline (mode: {mode})...")
+        if self._use_pose and self.config.detection.enable_smoothing:
+            logger.info("Keypoint smoothing: enabled")
         try:
             while True:
                 frame = self.camera.read()

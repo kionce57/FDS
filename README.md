@@ -88,9 +88,23 @@ camera:
   source: 0 # 攝影機索引或 RTSP URL
   fps: 15
 analysis:
-  fall_threshold: 1.3 # 長寬比閾值
+  fall_threshold: 1.3 # 長寬比閾值（BBox 模式）/ 軀幹角度閾值（Pose 模式）
   delay_sec: 3.0 # 延遲確認秒數
 ```
+
+4. **Pose 模式設定（可選）**：
+
+啟用骨架姿態偵測取代 BBox 長寬比：
+
+```yaml
+detection:
+  use_pose: true # 啟用 Pose 模式
+  enable_smoothing: true # 啟用 Keypoint 平滑減少誤報
+  smoothing_min_cutoff: 1.0
+  smoothing_beta: 0.007
+```
+
+> **Note**: Pose 模式使用 `yolo11s-pose.pt`，會自動偵測軀幹角度 > 60° 作為跌倒判斷依據。
 
 ### 執行
 

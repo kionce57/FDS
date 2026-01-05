@@ -114,6 +114,16 @@ class FallEventObserver(Protocol):
 
 載入順序: `config/settings.yaml` → `_substitute_env_vars()` → 強型別 dataclass
 
+**Detection Config Options:**
+
+```yaml
+detection:
+  use_pose: true # 啟用 Pose 模式（預設 false，使用 BBox）
+  enable_smoothing: true # 啟用 Keypoint 平滑（僅 Pose 模式）
+  smoothing_min_cutoff: 1.0
+  smoothing_beta: 0.007
+```
+
 環境變數: `.env` 定義 `LINE_BOT_CHANNEL_ACCESS_TOKEN`, `LINE_BOT_USER_ID`
 
 ## Key Data Structures
