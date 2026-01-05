@@ -22,6 +22,10 @@ class DetectionConfig:
     confidence: float
     classes: list[int]
     pose_model: str = "yolo11s-pose.pt"
+    use_pose: bool = False
+    enable_smoothing: bool = False
+    smoothing_min_cutoff: float = 1.0
+    smoothing_beta: float = 0.007
 
 
 @dataclass
