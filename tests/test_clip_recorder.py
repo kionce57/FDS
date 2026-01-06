@@ -52,3 +52,60 @@ class TestClipRecorder:
             recorder.save(sample_frames, "evt_test")
 
             assert mock_instance.write.call_count == len(sample_frames)
+
+
+def test_clip_recorder_on_fall_confirmed_saves_clip(tmp_path):
+    """ClipRecorder should save clip when fall is confirmed."""
+    import time
+    import numpy as np
+    from src.capture.rolling_buffer import RollingBuffer, FrameData
+    from src.events.clip_recorder import ClipRecorder
+    from src.events.event_logger import EventLogger
+    from src.events.observer import FallEvent
+
+    # Setup
+    buffer = RollingBuffer(buffer_seconds=10, fps=15)
+    event_time = time.time()
+
+    # Push frames to buffer
+    for i in range(30):
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        frame_data = FrameData(timestamp=event_time - 1 + i * 0.033, frame=frame, bbox=None)
+        buffer.push(frame_data)
+
+    db_path = str(tmp_path / "test.db")
+    event_logger = EventLogger(db_path=db_path)
+    recorder = ClipRecorder(
+        rolling_buffer=buffer,
+        event_logger=event_logger,
+        clip_before_sec=0.5,
+        clip_after_sec=0.5,
+        output_dir=str(tmp_path / "clips"),
+        fps=15,
+    )
+
+    # Create event and trigger observer
+    event = FallEvent(
+        event_id="evt_123",
+        confirmed_at=event_time,
+        last_notified_at=event_time,
+        notification_count=1,
+    )
+    event_logger.on_fall_confirmed(event)  # Create DB record first
+
+    # Mock VideoWriter to avoid codec dependency
+    with patch("cv2.VideoWriter") as mock_writer:
+        mock_instance = mock_writer.return_value
+        mock_instance.isOpened.return_value = True
+
+        recorder.on_fall_confirmed(event)
+
+        # Verify VideoWriter was called (clip save attempted)
+        mock_writer.assert_called_once()
+        assert mock_instance.write.call_count > 0
+
+    # Verify event_logger was updated
+    events = event_logger.get_recent_events(limit=1)
+    assert events[0]["clip_path"] is not None
+
+    event_logger.close()
