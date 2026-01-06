@@ -15,11 +15,13 @@ Fall Detection System (FDS) - 居家長照跌倒偵測系統。使用 YOLO 進�
 uv sync                    # 安裝/同步依賴
 uv sync --all-extras       # 包含 dev 依賴
 
-# 執行
-uv run python main.py                              # 即時偵測
-uv run python -m scripts.test_with_video <path>    # 影片測試 (BBox 模式)
-uv run python -m scripts.test_with_video <path> --use-pose                 # Pose 模式
-uv run python -m scripts.test_with_video <path> --use-pose --enable-smoothing  # Pose + 平滑
+# 執行（Entry points 定義在 pyproject.toml）
+uv run python main.py                              # 即時偵測（或 fds）
+uv run fds-test-video <path>                       # 影片測試 (BBox 模式)
+uv run fds-test-video <path> --use-pose            # Pose 模式
+uv run fds-test-video <path> --use-pose --enable-smoothing  # Pose + 平滑
+uv run fds-cleanup                                 # 清理過期影片
+uv run fds-cloud-sync                              # 骨架 JSON 上傳 GCP
 
 # 測試
 uv run pytest                                      # 全部測試
@@ -47,15 +49,15 @@ docker compose logs -f fds  # 查看日誌
 Camera → Detector → RuleEngine → DelayConfirm → Observers
            ↓            ↓              ↓              ↓
       YOLO detect   is_fallen?   State Machine    EventLogger (SQLite)
-                                                   LineNotifier (LINE API)
-                                                   ClipRecorder (影片錄製)
+      BBox/Skeleton                               LineNotifier (LINE API)
+                                                  ClipRecorder (影片錄製)
 ```
 
 **關鍵流程:**
 
 1. `Camera.read()` 擷取影像幀
-2. `Detector.detect()` 執行 YOLO 推論 → 回傳 BBox 或 Skeleton
-3. `RuleEngine.is_fallen()` 套用規則（長寬比 < 1.3 或軀幹角度 < 60°）
+2. `Detector.detect()` 執行 YOLO 推論 → 回傳 `BBox` (bbox.py) 或 `Skeleton` (skeleton.py)
+3. `RuleEngine.is_fallen()` / `PoseRuleEngine.is_fallen()` 套用規則
 4. `DelayConfirm.update()` 狀態機判斷（3 秒延遲確認）
 5. 狀態變化時觸發 Observer Pattern 通知所有訂閱者
 6. `RollingBuffer` 持續保存 10 秒環形緩衝，跌倒確認時提取前後 5 秒影片
@@ -68,7 +70,7 @@ Camera → Detector → RuleEngine → DelayConfirm → Observers
 | Pose        | `yolo11s-pose.pt` | `torso_angle < 60°`  | `detection.use_pose: true`                    |
 | Pose+平滑   | `yolo11s-pose.pt` | `torso_angle < 60°`  | `detection.use_pose: true, enable_smoothing: true` |
 
-Pose 模式啟用 **One Euro Filter** 可減少關鍵點抖動誤判（`smoothing_min_cutoff` 越低越平滑，`smoothing_beta` 越高對快速動作反應越快）。
+Pose 模式啟用 **One Euro Filter** (`src/analysis/smoothing/`) 可減少關鍵點抖動誤判（`smoothing_min_cutoff` 越低越平滑，`smoothing_beta` 越高對快速動作反應越快）。
 
 ### State Machine (src/analysis/delay_confirm.py)
 
@@ -88,7 +90,17 @@ class FallEventObserver(Protocol):
     def on_fall_recovered(self, event: FallEvent) -> None: ...
 ```
 
-**內建 Observers:** `EventLogger`, `LineNotifier`, `Pipeline`（負責觸發 ClipRecorder）
+**內建 Observers:** `EventLogger`, `LineNotifier`, `Pipeline`（負責觸發 `ClipRecorder`）
+
+### Module Dependencies
+
+```
+capture ← detection ← analysis ← events ← lifecycle ← core(Pipeline)
+```
+
+- 箭頭方向表示「被依賴」
+- `Pipeline` 是最外層，依賴所有其他模組
+- `capture/` 是最內層，不依賴其他業務模組
 
 ### Configuration
 
