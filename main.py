@@ -158,6 +158,7 @@ def main():
     except KeyboardInterrupt:
         logger.info("Stopping detection...")
     finally:
+        clip_recorder.shutdown()
         camera.release()
         event_logger.close()
         cleanup_scheduler.stop()

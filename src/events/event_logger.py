@@ -10,7 +10,8 @@ class EventLogger(FallEventObserver):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        self.conn = sqlite3.connect(str(self.db_path))
+        # check_same_thread=False allows connection to be used from background threads
+        self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         self._create_tables()
 
     def _create_tables(self) -> None:

@@ -1,3 +1,4 @@
+import threading
 from collections import deque
 from dataclasses import dataclass
 
@@ -15,9 +16,11 @@ class RollingBuffer:
     def __init__(self, buffer_seconds: float = 10.0, fps: float = 15.0):
         self.max_frames = int(buffer_seconds * fps)
         self.buffer: deque[FrameData] = deque(maxlen=self.max_frames)
+        self._lock = threading.Lock()
 
     def push(self, frame_data: FrameData) -> None:
-        self.buffer.append(frame_data)
+        with self._lock:
+            self.buffer.append(frame_data)
 
     def get_clip(
         self,
@@ -27,10 +30,13 @@ class RollingBuffer:
     ) -> list[FrameData]:
         start_time = event_time - before_sec
         end_time = event_time + after_sec
-        return [f for f in self.buffer if start_time <= f.timestamp <= end_time]
+        with self._lock:
+            return [f for f in self.buffer if start_time <= f.timestamp <= end_time]
 
     def clear(self) -> None:
-        self.buffer.clear()
+        with self._lock:
+            self.buffer.clear()
 
     def __len__(self) -> int:
-        return len(self.buffer)
+        with self._lock:
+            return len(self.buffer)

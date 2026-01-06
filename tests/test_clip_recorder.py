@@ -55,7 +55,7 @@ class TestClipRecorder:
 
 
 def test_clip_recorder_on_fall_confirmed_saves_clip(tmp_path):
-    """ClipRecorder should save clip when fall is confirmed."""
+    """ClipRecorder should save clip after delay when fall is confirmed."""
     import time
     import numpy as np
     from src.capture.rolling_buffer import RollingBuffer, FrameData
@@ -75,11 +75,12 @@ def test_clip_recorder_on_fall_confirmed_saves_clip(tmp_path):
 
     db_path = str(tmp_path / "test.db")
     event_logger = EventLogger(db_path=db_path)
+    clip_after_sec = 0.1  # Short delay for testing
     recorder = ClipRecorder(
         rolling_buffer=buffer,
         event_logger=event_logger,
         clip_before_sec=0.5,
-        clip_after_sec=0.5,
+        clip_after_sec=clip_after_sec,
         output_dir=str(tmp_path / "clips"),
         fps=15,
     )
@@ -100,6 +101,12 @@ def test_clip_recorder_on_fall_confirmed_saves_clip(tmp_path):
 
         recorder.on_fall_confirmed(event)
 
+        # Recording is now delayed, verify NOT called immediately
+        assert not mock_writer.called
+
+        # Wait for delay + small buffer
+        time.sleep(clip_after_sec + 0.2)
+
         # Verify VideoWriter was called (clip save attempted)
         mock_writer.assert_called_once()
         assert mock_instance.write.call_count > 0
@@ -109,3 +116,4 @@ def test_clip_recorder_on_fall_confirmed_saves_clip(tmp_path):
     assert events[0]["clip_path"] is not None
 
     event_logger.close()
+    recorder.shutdown()

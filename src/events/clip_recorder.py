@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -36,6 +37,7 @@ class ClipRecorder(FallEventObserver):
         self.event_logger = event_logger
         self.clip_before_sec = clip_before_sec
         self.clip_after_sec = clip_after_sec
+        self._pending_recordings: list[threading.Timer] = []
 
     def _generate_filename(self, event_id: str) -> str:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -66,8 +68,24 @@ class ClipRecorder(FallEventObserver):
         return str(output_path)
 
     def on_fall_confirmed(self, event: FallEvent) -> None:
+        """Schedule clip recording after clip_after_sec delay."""
         if self.rolling_buffer is None:
             logger.warning("on_fall_confirmed called without rolling_buffer configured")
+            return
+
+        timer = threading.Timer(
+            self.clip_after_sec,
+            self._save_clip_delayed,
+            args=[event],
+        )
+        timer.daemon = True
+        timer.start()
+        self._pending_recordings.append(timer)
+        logger.info(f"Scheduled clip recording in {self.clip_after_sec}s for event {event.event_id}")
+
+    def _save_clip_delayed(self, event: FallEvent) -> None:
+        """Execute the actual clip saving after delay."""
+        if self.rolling_buffer is None:
             return
 
         frames = self.rolling_buffer.get_clip(
@@ -80,6 +98,14 @@ class ClipRecorder(FallEventObserver):
 
         if clip_path and self.event_logger:
             self.event_logger.update_clip_path(event.event_id, clip_path)
+            logger.info(f"Clip saved: {clip_path}")
 
     def on_fall_recovered(self, event: FallEvent) -> None:
         pass
+
+    def shutdown(self) -> None:
+        """Cancel all pending recording timers."""
+        for timer in self._pending_recordings:
+            timer.cancel()
+        self._pending_recordings.clear()
+        logger.info("ClipRecorder shutdown: cancelled pending recordings")
