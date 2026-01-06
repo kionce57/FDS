@@ -43,7 +43,7 @@ docker compose logs -f fds  # 查看日誌
 
 詳細架構請參考 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，包含 C4 Model、Sequence Diagram 與 SA/SD 分析。
 
-### Pipeline Flow (src/core/pipeline.py)
+### Detection Flow (main.py)
 
 ```
 Camera → Detector → RuleEngine → DelayConfirm → Observers
@@ -56,11 +56,11 @@ Camera → Detector → RuleEngine → DelayConfirm → Observers
 **關鍵流程:**
 
 1. `Camera.read()` 擷取影像幀
-2. `Detector.detect()` 執行 YOLO 推論 → 回傳 `BBox` (bbox.py) 或 `Skeleton` (skeleton.py)
+2. `Detector.detect()` 執行 YOLO 推論 → 回傳 `BBox` 或 `Skeleton`
 3. `RuleEngine.is_fallen()` / `PoseRuleEngine.is_fallen()` 套用規則
 4. `DelayConfirm.update()` 狀態機判斷（3 秒延遲確認）
 5. 狀態變化時觸發 Observer Pattern 通知所有訂閱者
-6. `RollingBuffer` 持續保存 10 秒環形緩衝，跌倒確認時提取前後 5 秒影片
+6. `ClipRecorder` 從 `RollingBuffer` 取得前後影片並儲存
 
 ### Detection Modes
 
@@ -90,16 +90,18 @@ class FallEventObserver(Protocol):
     def on_fall_recovered(self, event: FallEvent) -> None: ...
 ```
 
-**內建 Observers:** `EventLogger`, `LineNotifier`, `Pipeline`（負責觸發 `ClipRecorder`）
+**內建 Observers:** `EventLogger`, `LineNotifier`, `ClipRecorder`
 
 ### Module Dependencies
 
 ```
-capture ← detection ← analysis ← events ← lifecycle ← core(Pipeline)
+capture ← detection ← analysis ← events ← lifecycle
+                                   ↑
+                              main.py (composition root)
 ```
 
-- 箭頭方向表示「被依賴」
-- `Pipeline` 是最外層，依賴所有其他模組
+- `main.py` 是 composition root，負責建立與組裝所有元件
+- 各模組不互相依賴，由 `main.py` 注入依賴
 - `capture/` 是最內層，不依賴其他業務模組
 
 ### Configuration
@@ -113,7 +115,7 @@ capture ← detection ← analysis ← events ← lifecycle ← core(Pipeline)
 - **Model files:** 首次執行自動下載 `yolo11n.pt` / `yolo11s-pose.pt`
 - **Data directory:** `data/` 由 gitignore，包含 `fds.db`, `clips/`
 - **Camera source:** 開發用影片測試，正式環境改 camera index 或 RTSP URL
-- **LINE Bot:** 配置缺失時通知失敗但不會 crash Pipeline
+- **LINE Bot:** 配置缺失時通知失敗但不會 crash 主程式
 - **Cleanup:** `lifecycle.clip_retention_days=7`，使用 `fds-cleanup` 執行
 
 ## Output
