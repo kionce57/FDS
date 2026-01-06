@@ -371,6 +371,47 @@ sequenceDiagram
     end
 ```
 
+### Post-Event Recording Flow
+
+> 延遲錄製機制：事件確認後等待 `clip_after_sec` 秒，確保擷取事件後的影像
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant SM as StateMachine
+    participant Obs as Observer
+    participant CR as ClipRecorder
+    participant Timer as threading.Timer
+    participant Buf as RollingBuffer
+    participant DB as Database
+
+    SM->>Obs: publish(FallEvent) @ t₀
+    Obs->>CR: on_fall_confirmed(event)
+    CR->>Timer: schedule(_save_clip, delay=clip_after_sec)
+    Note over Timer: 等待 clip_after_sec 秒<br/>（預設 5 秒）
+
+    loop Main Thread 繼續運作
+        Note over Buf: push(frame) 持續接收影格
+    end
+
+    Timer->>CR: _save_clip(event) @ t₀+clip_after_sec
+    CR->>Buf: get_clip(before=5, after=5)
+    Buf-->>CR: frames[t₀-5 ~ t₀+5]
+    CR->>CR: save() → MP4
+    CR->>DB: update_clip_path()
+```
+
+**設計重點：**
+
+| 項目 | 說明 |
+|------|------|
+| **延遲機制** | `threading.Timer` 延遲 `clip_after_sec` 秒後執行錄製 |
+| **Buffer 容量** | `buffer_seconds` >= `delay_sec` + `clip_before_sec` + `clip_after_sec` + margin |
+| **Thread Safety** | `RollingBuffer` 使用 `threading.Lock` 保護並發存取 |
+| **Graceful Shutdown** | `ClipRecorder.shutdown()` 取消所有 pending timers |
+
+---
+
 ### State Machine 狀態轉換
 
 ```mermaid
