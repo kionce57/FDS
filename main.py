@@ -1,6 +1,5 @@
 import logging
 import signal
-import sys
 import time
 
 import numpy as np
@@ -120,10 +119,12 @@ def main():
     cleanup_scheduler = CleanupScheduler(config)
     cleanup_scheduler.start()
 
+    running = True
+
     def signal_handler(_signum: int, _frame: object) -> None:
+        nonlocal running
         logger.info("收到終止訊號，正在關閉...")
-        cleanup_scheduler.stop()
-        sys.exit(0)
+        running = False
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -135,7 +136,7 @@ def main():
         logger.info("Keypoint smoothing: enabled")
 
     try:
-        while True:
+        while running:
             frame = camera.read()
             if frame is None:
                 continue
