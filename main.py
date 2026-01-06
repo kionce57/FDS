@@ -49,6 +49,11 @@ def process_frame(
 
 
 def main():
+    """
+    Create and run the fall-detection application: initialize components, start the main camera-processing loop, and perform graceful shutdown.
+    
+    Initializes configuration, logging, and runtime components (camera, detector, rule engine, rolling buffer, event logger, clip recorder, notifier, delay-confirmation engine, and cleanup scheduler). Wires observers so confirmed events trigger logging, notifications, and clip recording. Installs signal handlers to stop the loop on SIGINT/SIGTERM. Runs a loop that reads frames from the camera, delegates per-frame processing to process_frame, and logs when a fall is confirmed. On termination, shuts down the clip recorder, releases the camera, closes the event logger, and stops the cleanup scheduler.
+    """
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
