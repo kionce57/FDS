@@ -4,8 +4,6 @@ Uses One Euro Filter to smooth each keypoint coordinate independently,
 providing adaptive noise reduction while preserving fast movements.
 """
 
-import numpy as np
-
 from src.detection.skeleton import Skeleton, Keypoint
 from .one_euro_filter import OneEuroFilter
 
@@ -96,9 +94,7 @@ class KeypointSmoother:
 
         return Skeleton(keypoints=smoothed_keypoints)
 
-    def smooth_batch(
-        self, skeletons: list[Skeleton], timestamps: list[float]
-    ) -> list[Skeleton]:
+    def smooth_batch(self, skeletons: list[Skeleton], timestamps: list[float]) -> list[Skeleton]:
         """Smooth a batch of skeletons with corresponding timestamps.
 
         Args:

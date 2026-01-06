@@ -2,7 +2,6 @@
 
 import cv2
 import sys
-import os
 
 # 強制使用 UTF-8 輸出（修復 Windows console 編碼問題）
 if sys.platform == "win32":
@@ -106,7 +105,9 @@ def main():
         print(f"找到 {len(available_cameras)} 個可用攝影機:\n")
         for cam in available_cameras:
             status = "✓" if cam["frame_test"] else "⚠"
-            print(f"  {status} index={cam['index']} | {cam['backend']} | {cam['resolution']} @ {cam['fps']} fps")
+            print(
+                f"  {status} index={cam['index']} | {cam['backend']} | {cam['resolution']} @ {cam['fps']} fps"
+            )
 
         print("\n建議:")
         working = [c for c in available_cameras if c["frame_test"]]

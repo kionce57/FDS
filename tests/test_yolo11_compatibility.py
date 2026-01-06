@@ -96,27 +96,29 @@ class TestPoseDetectorYOLO11Output:
 
         # YOLO11 keypoints format: (num_detections, num_keypoints, 3)
         # where 3 = [x, y, confidence]
-        mock_keypoints_data = np.array([
+        mock_keypoints_data = np.array(
             [
-                [320, 50, 0.95],   # nose
-                [310, 45, 0.92],   # left_eye
-                [330, 45, 0.91],   # right_eye
-                [300, 50, 0.85],   # left_ear
-                [340, 50, 0.87],   # right_ear
-                [280, 120, 0.98],  # left_shoulder
-                [360, 120, 0.97],  # right_shoulder
-                [260, 200, 0.90],  # left_elbow
-                [380, 200, 0.89],  # right_elbow
-                [250, 280, 0.75],  # left_wrist
-                [390, 280, 0.78],  # right_wrist
-                [290, 280, 0.96],  # left_hip
-                [350, 280, 0.95],  # right_hip
-                [290, 380, 0.92],  # left_knee
-                [350, 380, 0.91],  # right_knee
-                [290, 480, 0.88],  # left_ankle
-                [350, 480, 0.87],  # right_ankle
+                [
+                    [320, 50, 0.95],  # nose
+                    [310, 45, 0.92],  # left_eye
+                    [330, 45, 0.91],  # right_eye
+                    [300, 50, 0.85],  # left_ear
+                    [340, 50, 0.87],  # right_ear
+                    [280, 120, 0.98],  # left_shoulder
+                    [360, 120, 0.97],  # right_shoulder
+                    [260, 200, 0.90],  # left_elbow
+                    [380, 200, 0.89],  # right_elbow
+                    [250, 280, 0.75],  # left_wrist
+                    [390, 280, 0.78],  # right_wrist
+                    [290, 280, 0.96],  # left_hip
+                    [350, 280, 0.95],  # right_hip
+                    [290, 380, 0.92],  # left_knee
+                    [350, 380, 0.91],  # right_knee
+                    [290, 480, 0.88],  # left_ankle
+                    [350, 480, 0.87],  # right_ankle
+                ]
             ]
-        ])
+        )
 
         mock_keypoints = MagicMock()
         mock_keypoints.data.cpu.return_value.numpy.return_value = mock_keypoints_data
@@ -151,7 +153,7 @@ class TestPoseDetectorYOLO11Output:
             skeleton = skeletons[0]
             nose = skeleton.nose
             assert nose[0] == 320  # x
-            assert nose[1] == 50   # y
+            assert nose[1] == 50  # y
             assert nose[2] == 0.95  # confidence
 
     def test_pose_detector_skeleton_keypoint_shape(self, mock_yolo11_pose_result):
@@ -210,6 +212,7 @@ class TestYOLO11RealVideoIntegration:
     def test_video_path(self):
         """Path to test video."""
         from pathlib import Path
+
         video_path = Path("tests/fixtures/videos/fall-01-cam0.mp4")
         if not video_path.exists():
             pytest.skip("Test video not found")

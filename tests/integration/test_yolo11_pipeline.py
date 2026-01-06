@@ -13,7 +13,7 @@ import numpy as np
 from unittest.mock import patch, MagicMock
 
 from src.detection.detector import PoseDetector
-from src.detection.skeleton import Skeleton, Keypoint
+from src.detection.skeleton import Keypoint
 from src.analysis.pose_rule_engine import PoseRuleEngine
 from src.analysis.delay_confirm import DelayConfirm, FallState
 
@@ -90,9 +90,7 @@ class TestYOLO11PosePipelineUnit:
         state = delay_confirm.update(is_fallen, current_time=1.2)
         assert state == FallState.CONFIRMED
 
-    def test_pose_pipeline_with_smoothing(
-        self, mock_yolo11_detector, standing_keypoints
-    ):
+    def test_pose_pipeline_with_smoothing(self, mock_yolo11_detector, standing_keypoints):
         """Test pose pipeline with keypoint smoothing enabled."""
         detector, mock_yolo = mock_yolo11_detector
         rule_engine = PoseRuleEngine(
@@ -178,6 +176,7 @@ class TestYOLO11PoseRealModel:
     def test_video_path(self):
         """Path to test video."""
         from pathlib import Path
+
         video_path = Path("tests/fixtures/videos/fall-01-cam0.mp4")
         if not video_path.exists():
             pytest.skip("Test video not found")
@@ -237,7 +236,6 @@ class TestYOLO11PoseRealModel:
         fps = cap.get(cv2.CAP_PROP_FPS) or 15
 
         frame_count = 0
-        angles_smooth = []
         angles_raw = []
 
         while frame_count < 60:

@@ -45,11 +45,13 @@ class LineNotifier(FallEventObserver):
 
         if event.clip_url:
             preview_url = event.clip_url.replace(".mp4", "_thumb.jpg")
-            messages.append({
-                "type": "video",
-                "originalContentUrl": event.clip_url,
-                "previewImageUrl": preview_url,
-            })
+            messages.append(
+                {
+                    "type": "video",
+                    "originalContentUrl": event.clip_url,
+                    "previewImageUrl": preview_url,
+                }
+            )
 
         return messages
 

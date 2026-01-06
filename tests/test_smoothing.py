@@ -167,7 +167,7 @@ class TestKeypointSmoother:
         skeleton = Skeleton(keypoints=keypoints)
 
         # First frame
-        result1 = smoother.smooth(skeleton, 0.0)
+        _ = smoother.smooth(skeleton, 0.0)
 
         # Second frame with different values
         keypoints2 = keypoints.copy()

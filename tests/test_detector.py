@@ -78,11 +78,11 @@ class TestPoseDetector:
     def test_pose_detector_uses_yolo11_by_default(self):
         """Verify PoseDetector defaults to yolo11s-pose.pt."""
         with patch("src.detection.detector.YOLO") as mock_yolo:
-            detector = PoseDetector()
+            _ = PoseDetector()
             mock_yolo.assert_called_once_with("yolo11s-pose.pt")
 
     def test_pose_detector_accepts_model_path(self):
         """Verify PoseDetector accepts custom model path."""
         with patch("src.detection.detector.YOLO") as mock_yolo:
-            detector = PoseDetector(model_path="custom-pose.pt")
+            _ = PoseDetector(model_path="custom-pose.pt")
             mock_yolo.assert_called_once_with("custom-pose.pt")
