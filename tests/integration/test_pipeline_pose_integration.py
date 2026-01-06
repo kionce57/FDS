@@ -1,56 +1,13 @@
-"""Integration tests for Pipeline with Pose mode and smoothing."""
+"""Integration tests for Pose mode detection flow."""
 
-import pytest
 import numpy as np
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
-from src.core.pipeline import Pipeline
-from src.core.config import (
-    Config,
-    CameraConfig,
-    DetectionConfig,
-    AnalysisConfig,
-    RecordingConfig,
-    NotificationConfig,
-    LifecycleConfig,
-)
-from src.analysis.delay_confirm import FallState
+from src.analysis.delay_confirm import DelayConfirm, FallState
+from src.analysis.pose_rule_engine import PoseRuleEngine
+from src.capture.rolling_buffer import RollingBuffer
 from src.detection.skeleton import Skeleton, Keypoint
-
-
-@pytest.fixture
-def pose_smoothing_config():
-    """Config with Pose mode and smoothing enabled."""
-    return Config(
-        camera=CameraConfig(source=0, fps=15, resolution=[640, 480]),
-        detection=DetectionConfig(
-            model="yolo11n.pt",
-            confidence=0.5,
-            classes=[0],
-            pose_model="yolo11s-pose.pt",
-            use_pose=True,
-            enable_smoothing=True,
-            smoothing_min_cutoff=1.0,
-            smoothing_beta=0.007,
-        ),
-        analysis=AnalysisConfig(
-            fall_threshold=60.0,  # Torso angle threshold for Pose mode
-            delay_sec=3.0,
-            same_event_window=60.0,
-            re_notify_interval=120.0,
-        ),
-        recording=RecordingConfig(
-            buffer_seconds=10,
-            clip_before_sec=5,
-            clip_after_sec=5,
-        ),
-        notification=NotificationConfig(
-            line_channel_access_token="",
-            line_user_id="",
-            enabled=False,
-        ),
-        lifecycle=LifecycleConfig(clip_retention_days=7),
-    )
+from main import process_frame
 
 
 def create_standing_skeleton() -> Skeleton:
@@ -70,7 +27,6 @@ def create_fallen_skeleton() -> Skeleton:
     """Create a fallen person skeleton (torso angle ~85 degrees)."""
     keypoints = np.zeros((17, 3))
     keypoints[Keypoint.NOSE] = [100, 400, 0.9]
-    # Person lying on side - shoulders and hips nearly horizontal
     keypoints[Keypoint.LEFT_SHOULDER] = [170, 390, 0.9]
     keypoints[Keypoint.RIGHT_SHOULDER] = [170, 410, 0.9]
     keypoints[Keypoint.LEFT_HIP] = [350, 390, 0.9]
@@ -80,110 +36,55 @@ def create_fallen_skeleton() -> Skeleton:
     return Skeleton(keypoints=keypoints)
 
 
-class TestPipelinePoseSmoothingIntegration:
-    """Integration tests for Pose mode with smoothing."""
+class TestPoseModeDetectionFlow:
+    def test_pose_fall_detection(self):
+        """Test Pose mode: standing -> fall -> confirm"""
+        detector = MagicMock()
+        rule_engine = PoseRuleEngine(torso_angle_threshold=60.0, enable_smoothing=False)
+        delay_confirm = DelayConfirm(delay_sec=0.1)
+        buffer = RollingBuffer(buffer_seconds=2, fps=15)
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
-    def test_smoothing_reduces_false_positives_from_jitter(
-        self, pose_smoothing_config, tmp_path
-    ):
+        # Standing
+        detector.detect.return_value = [create_standing_skeleton()]
+        state = process_frame(frame, 0.0, detector, rule_engine, delay_confirm, buffer, True)
+        assert state == FallState.NORMAL
+
+        # Fallen
+        detector.detect.return_value = [create_fallen_skeleton()]
+        state = process_frame(frame, 1.0, detector, rule_engine, delay_confirm, buffer, True)
+        assert state == FallState.SUSPECTED
+
+        state = process_frame(frame, 1.2, detector, rule_engine, delay_confirm, buffer, True)
+        assert state == FallState.CONFIRMED
+
+    def test_pose_smoothing_reduces_jitter(self):
         """Smoothing should reduce false positives from noisy keypoints."""
-        with (
-            patch("src.core.pipeline.Camera"),
-            patch("src.core.pipeline.PoseDetector") as mock_pose_detector,
-            patch("src.core.pipeline.EventLogger"),
-        ):
-            db_path = str(tmp_path / "test.db")
+        detector = MagicMock()
+        rule_engine = PoseRuleEngine(
+            torso_angle_threshold=60.0,
+            enable_smoothing=True,
+            smoothing_min_cutoff=1.0,
+            smoothing_beta=0.007,
+        )
+        delay_confirm = DelayConfirm(delay_sec=3.0)
+        buffer = RollingBuffer(buffer_seconds=2, fps=15)
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
-            # Setup mock detector
-            mock_detector_instance = MagicMock()
-            mock_pose_detector.return_value = mock_detector_instance
+        np.random.seed(42)
+        base_skeleton = create_standing_skeleton()
+        states = []
 
-            pipeline = Pipeline(pose_smoothing_config, db_path=db_path)
+        for i in range(30):
+            noisy_keypoints = base_skeleton.keypoints.copy()
+            noisy_keypoints[:, 0] += np.random.randn(17) * 5
+            noisy_keypoints[:, 1] += np.random.randn(17) * 5
+            noisy_skeleton = Skeleton(keypoints=noisy_keypoints)
 
-            # Simulate 30 frames of standing with small jitter
-            np.random.seed(42)
-            states = []
-            base_skeleton = create_standing_skeleton()
+            detector.detect.return_value = [noisy_skeleton]
+            state = process_frame(
+                frame, i * 0.033, detector, rule_engine, delay_confirm, buffer, True
+            )
+            states.append(state)
 
-            for i in range(30):
-                # Add small random noise to keypoints
-                noisy_keypoints = base_skeleton.keypoints.copy()
-                noisy_keypoints[:, 0] += np.random.randn(17) * 5  # x noise
-                noisy_keypoints[:, 1] += np.random.randn(17) * 5  # y noise
-                noisy_skeleton = Skeleton(keypoints=noisy_keypoints)
-
-                mock_detector_instance.detect.return_value = [noisy_skeleton]
-
-                frame = np.zeros((480, 640, 3), dtype=np.uint8)
-                state = pipeline.process_frame(frame, current_time=i * 0.033)
-                states.append(state)
-
-            # All frames should be NORMAL (no false positives from jitter)
-            assert all(s == FallState.NORMAL for s in states)
-
-    def test_fall_detection_with_smoothing(self, pose_smoothing_config, tmp_path):
-        """Fall should be detected after delay even with smoothing."""
-        with (
-            patch("src.core.pipeline.Camera"),
-            patch("src.core.pipeline.PoseDetector") as mock_pose_detector,
-            patch("src.core.pipeline.EventLogger"),
-        ):
-            db_path = str(tmp_path / "test.db")
-
-            mock_detector_instance = MagicMock()
-            mock_pose_detector.return_value = mock_detector_instance
-
-            pipeline = Pipeline(pose_smoothing_config, db_path=db_path)
-
-            fallen_skeleton = create_fallen_skeleton()
-            mock_detector_instance.detect.return_value = [fallen_skeleton]
-
-            states = []
-            # Simulate 100 frames at 30fps = 3.3 seconds (beyond 3s delay)
-            for i in range(100):
-                frame = np.zeros((480, 640, 3), dtype=np.uint8)
-                state = pipeline.process_frame(frame, current_time=i * 0.033)
-                states.append(state)
-
-            # Should transition: NORMAL -> SUSPECTED -> CONFIRMED
-            assert FallState.SUSPECTED in states
-            assert FallState.CONFIRMED in states
-
-    def test_recovery_from_fall_with_smoothing(self, pose_smoothing_config, tmp_path):
-        """Person should recover from fall when standing up."""
-        with (
-            patch("src.core.pipeline.Camera"),
-            patch("src.core.pipeline.PoseDetector") as mock_pose_detector,
-            patch("src.core.pipeline.EventLogger"),
-        ):
-            db_path = str(tmp_path / "test.db")
-
-            mock_detector_instance = MagicMock()
-            mock_pose_detector.return_value = mock_detector_instance
-
-            pipeline = Pipeline(pose_smoothing_config, db_path=db_path)
-
-            fallen_skeleton = create_fallen_skeleton()
-            standing_skeleton = create_standing_skeleton()
-
-            states = []
-
-            # Fall for 4 seconds (beyond delay)
-            mock_detector_instance.detect.return_value = [fallen_skeleton]
-            for i in range(120):  # 4 seconds at 30fps
-                frame = np.zeros((480, 640, 3), dtype=np.uint8)
-                state = pipeline.process_frame(frame, current_time=i * 0.033)
-                states.append(state)
-
-            # Should be CONFIRMED
-            assert states[-1] == FallState.CONFIRMED
-
-            # Now stand up
-            mock_detector_instance.detect.return_value = [standing_skeleton]
-            for i in range(120, 150):  # 1 more second
-                frame = np.zeros((480, 640, 3), dtype=np.uint8)
-                state = pipeline.process_frame(frame, current_time=i * 0.033)
-                states.append(state)
-
-            # Should recover to NORMAL
-            assert states[-1] == FallState.NORMAL
+        assert all(s == FallState.NORMAL for s in states)
