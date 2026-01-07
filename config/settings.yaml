@@ -23,7 +23,8 @@ analysis:
   re_notify_interval: 120.0
 
 recording:
-  buffer_seconds: 10
+  # buffer_seconds >= delay_sec(3) + clip_before(5) + clip_after(5) + margin(2)
+  buffer_seconds: 15
   clip_before_sec: 5
   clip_after_sec: 5
 
