@@ -38,6 +38,7 @@ class ClipRecorder(FallEventObserver):
         self.clip_before_sec = clip_before_sec
         self.clip_after_sec = clip_after_sec
         self._pending_recordings: list[threading.Timer] = []
+        self._recordings_lock = threading.Lock()
 
     def _generate_filename(self, event_id: str) -> str:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -80,12 +81,21 @@ class ClipRecorder(FallEventObserver):
         )
         timer.daemon = True
         timer.start()
-        self._pending_recordings.append(timer)
+        with self._recordings_lock:
+            self._pending_recordings.append(timer)
         logger.info(f"Scheduled clip recording in {self.clip_after_sec}s for event {event.event_id}")
 
     def _save_clip_delayed(self, event: FallEvent) -> None:
         """Execute the actual clip saving after delay."""
+        # Remove completed timer from pending list
+        current_thread = threading.current_thread()
+        with self._recordings_lock:
+            self._pending_recordings = [
+                t for t in self._pending_recordings if t.ident != current_thread.ident
+            ]
+
         if self.rolling_buffer is None:
+            logger.warning(f"Cannot save clip for event {event.event_id}: rolling_buffer is None")
             return
 
         frames = self.rolling_buffer.get_clip(
@@ -105,7 +115,8 @@ class ClipRecorder(FallEventObserver):
 
     def shutdown(self) -> None:
         """Cancel all pending recording timers."""
-        for timer in self._pending_recordings:
-            timer.cancel()
-        self._pending_recordings.clear()
+        with self._recordings_lock:
+            for timer in self._pending_recordings:
+                timer.cancel()
+            self._pending_recordings.clear()
         logger.info("ClipRecorder shutdown: cancelled pending recordings")

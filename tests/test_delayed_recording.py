@@ -136,6 +136,33 @@ class TestDelayedRecording:
         recorder.shutdown()
         assert len(recorder._pending_recordings) == 0
 
+    def test_completed_timers_are_removed_from_pending_list(self, rolling_buffer, tmp_path):
+        """Completed timers should be removed from _pending_recordings (no memory leak)."""
+        buffer, event_time = rolling_buffer
+        clip_after_sec = 0.1
+
+        recorder = ClipRecorder(
+            rolling_buffer=buffer,
+            clip_before_sec=1.0,
+            clip_after_sec=clip_after_sec,
+            output_dir=str(tmp_path / "clips"),
+            fps=15,
+        )
+
+        event = FallEvent("evt_cleanup", event_time, event_time, 1)
+
+        with patch.object(recorder, "save", return_value="/fake/path.mp4"):
+            recorder.on_fall_confirmed(event)
+            assert len(recorder._pending_recordings) == 1
+
+            # Wait for timer to complete
+            time.sleep(clip_after_sec + 0.2)
+
+            # Timer should be removed after completion
+            assert len(recorder._pending_recordings) == 0
+
+        recorder.shutdown()
+
 
 class TestRollingBufferThreadSafety:
     """Tests for RollingBuffer thread safety."""
