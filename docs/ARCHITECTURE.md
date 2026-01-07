@@ -143,11 +143,11 @@ graph TD
     end
 
     subgraph Pipelines["DUAL PIPELINE"]
-        subgraph P1["Pipeline 1: 即時串流"]
+        subgraph P1["Pipeline 1: 即時串流(P)"]
             StreamServer["Stream Server<br/>MJPEG/WebSocket"]
         end
         
-        subgraph P2["Pipeline 2: 事件偵測"]
+        subgraph P2["Pipeline 2: 事件偵測(P+A)"]
             YOLO["YOLO Detection"]
             Classifier["Classifier"]
             StateMachine["State Machine"]
