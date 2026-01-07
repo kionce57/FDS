@@ -16,7 +16,14 @@ class TestDelayedRecording:
 
     @pytest.fixture
     def rolling_buffer(self):
-        """Create a rolling buffer with test frames."""
+        """
+        Create a RollingBuffer preloaded with approximately 4 seconds of test frames and return it along with the reference event timestamp.
+        
+        The buffer is instantiated with 10 seconds of capacity at 15 FPS and seeded with 60 FrameData objects. Each frame is a zeroed 480x640 RGB numpy array; timestamps start at event_time - 2 seconds and advance by ~0.066 seconds (≈15 FPS), covering roughly event_time - 2 to event_time + 1.9.
+        
+        Returns:
+            tuple: (RollingBuffer, float) — the preloaded rolling buffer and the generated event_time timestamp.
+        """
         buffer = RollingBuffer(buffer_seconds=10, fps=15)
         event_time = time.time()
         for i in range(60):  # 4 seconds of frames
@@ -31,7 +38,15 @@ class TestDelayedRecording:
 
     @pytest.fixture
     def fall_event(self, rolling_buffer):
-        """Create a fall event at the buffer's event_time."""
+        """
+        Create a FallEvent using the event_time extracted from a rolling_buffer fixture.
+        
+        Parameters:
+            rolling_buffer (tuple): A pair (rolling_buffer_obj, event_time); the second element is the timestamp to use for the event's confirmation and last notification.
+        
+        Returns:
+            FallEvent: An event with id "test_delayed", `confirmed_at` and `last_notified_at` set to the rolling buffer's event_time, and `notification_count` set to 1.
+        """
         _, event_time = rolling_buffer
         return FallEvent(
             event_id="test_delayed",
@@ -176,6 +191,11 @@ class TestRollingBufferThreadSafety:
         event_time = time.time()
 
         def pusher():
+            """
+            Pushes 100 synthetic frames into the shared RollingBuffer to simulate a producer load for concurrency tests.
+            
+            Each pushed FrameData uses a zeroed 100x100 RGB frame and a timestamp starting at `event_time` incremented by ~0.033s per frame; a short sleep is performed between pushes to stagger production. Any exception raised during the loop is appended to the `errors` list.
+            """
             try:
                 for i in range(100):
                     frame = np.zeros((100, 100, 3), dtype=np.uint8)
@@ -185,6 +205,11 @@ class TestRollingBufferThreadSafety:
                 errors.append(e)
 
         def reader():
+            """
+            Worker that repeatedly requests 1.0s-before and 1.0s-after clips from the rolling buffer to exercise concurrent access and record any exceptions.
+            
+            Runs 50 iterations, calling buffer.get_clip(event_time, before_sec=1.0, after_sec=1.0) and sleeping 0.002 seconds between calls. Any exception raised is appended to the outer-scope `errors` list.
+            """
             try:
                 for _ in range(50):
                     buffer.get_clip(event_time, before_sec=1.0, after_sec=1.0)
@@ -213,6 +238,11 @@ class TestRollingBufferThreadSafety:
         errors = []
 
         def pusher():
+            """
+            Pushes 100 empty frames with increasing timestamps into the shared rolling buffer and records any exception.
+            
+            Each pushed frame is a 100x100 RGB array of zeros with a timestamp of 0.0 through 99.0. If an exception occurs during pushing, it is appended to the `errors` list.
+            """
             try:
                 for i in range(100):
                     frame = np.zeros((100, 100, 3), dtype=np.uint8)
@@ -221,6 +251,12 @@ class TestRollingBufferThreadSafety:
                 errors.append(e)
 
         def checker():
+            """
+            Attempt to call len(buffer) repeatedly and record any exception.
+            
+            Calls len(buffer) 100 times in a loop; if an exception is raised during these calls,
+            the exception is appended to the outer-scope `errors` list.
+            """
             try:
                 for _ in range(100):
                     _ = len(buffer)

@@ -8,6 +8,12 @@ from src.events.observer import FallEvent, FallEventObserver
 
 class EventLogger(FallEventObserver):
     def __init__(self, db_path: str = "data/fds.db"):
+        """
+        Initialize the EventLogger: ensure the database file's parent directories exist, open a SQLite connection (assigned to `self.conn`) configured for use from background threads, and create the required tables.
+        
+        Parameters:
+            db_path (str): Path to the SQLite database file. Defaults to "data/fds.db".
+        """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
@@ -17,6 +23,19 @@ class EventLogger(FallEventObserver):
         self._create_tables()
 
     def _create_tables(self) -> None:
+        """
+        Ensure the SQLite database contains the events table used to record fall events.
+        
+        Creates the `events` table if it does not exist with columns:
+        - `event_id` (TEXT PRIMARY KEY)
+        - `confirmed_at` (REAL NOT NULL)
+        - `recovered_at` (REAL, nullable)
+        - `notification_count` (INTEGER, default 1)
+        - `clip_path` (TEXT)
+        - `created_at` (REAL NOT NULL)
+        
+        Commits the transaction after executing the schema statement.
+        """
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS events (
                 event_id TEXT PRIMARY KEY,

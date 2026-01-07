@@ -55,7 +55,14 @@ class TestClipRecorder:
 
 
 def test_clip_recorder_on_fall_confirmed_saves_clip(tmp_path):
-    """ClipRecorder should save clip after delay when fall is confirmed."""
+    """
+    Verify that ClipRecorder saves a clip after the configured delay when a fall is confirmed and records the clip path in the event logger.
+    
+    This test:
+    - Uses a RollingBuffer populated with sample frames and an EventLogger backed by a temporary database.
+    - Mocks the video writer to avoid actual encoding and asserts that no write is attempted immediately after confirmation, then that writing occurs after the configured clip_after_sec delay.
+    - Confirms the event record is updated with a non-None `clip_path`.
+    """
     import time
     import numpy as np
     from src.capture.rolling_buffer import RollingBuffer, FrameData

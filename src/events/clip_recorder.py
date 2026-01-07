@@ -29,6 +29,18 @@ class ClipRecorder(FallEventObserver):
         clip_before_sec: float = 5.0,
         clip_after_sec: float = 5.0,
     ):
+        """
+        Initialize the ClipRecorder and prepare storage, encoding, and timing configuration.
+        
+        Parameters:
+            output_dir (str): Filesystem path where generated clips will be stored; directory is created if missing.
+            fps (int): Frames per second to use when encoding saved clips.
+            codec (str): Four-character codec identifier for the video writer (e.g., "avc1").
+            rolling_buffer (RollingBuffer | None): Optional source that can supply pre- and post-event frames for clip generation.
+            event_logger (EventLogger | None): Optional logger that will be updated with saved clip paths.
+            clip_before_sec (float): Number of seconds of footage to include before the event time.
+            clip_after_sec (float): Number of seconds of footage to include after the event time.
+        """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.fps = fps
@@ -41,10 +53,33 @@ class ClipRecorder(FallEventObserver):
         self._recordings_lock = threading.Lock()
 
     def _generate_filename(self, event_id: str) -> str:
+        """
+        Generate a filename for a clip using the current datetime and the provided event identifier.
+        
+        Parameters:
+            event_id (str): Unique identifier for the event to include in the filename.
+        
+        Returns:
+            str: Filename formatted as YYYYMMDD_HHMMSS_<event_id>.mp4
+        """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return f"{timestamp}_{event_id}.mp4"
 
     def save(self, frames: list[FrameData], event_id: str) -> str | None:
+        """
+        Save a sequence of frames as a video clip and return its filesystem path.
+        
+        Saves the provided frames to a new video file whose name includes the given event_id.
+        If `frames` is empty or the video writer cannot be opened, no file is created and `None` is returned.
+        
+        Parameters:
+            frames (list[FrameData]): Ordered sequence of frame containers; each item must expose a `frame`
+                attribute containing an image array compatible with OpenCV (height x width x channels).
+            event_id (str): Identifier to include in the generated filename for the saved clip.
+        
+        Returns:
+            str | None: The string path to the saved video file if successful, `None` if no clip was written.
+        """
         if not frames:
             return None
 
@@ -69,7 +104,14 @@ class ClipRecorder(FallEventObserver):
         return str(output_path)
 
     def on_fall_confirmed(self, event: FallEvent) -> None:
-        """Schedule clip recording after clip_after_sec delay."""
+        """
+        Schedule a delayed clip save for the given fall event.
+        
+        Creates and starts a daemon timer that will invoke the recorder's delayed save after the configured delay and tracks the timer so it can be cancelled during shutdown.
+        
+        Parameters:
+            event (FallEvent): The fall event to generate a clip for.
+        """
         if self.rolling_buffer is None:
             logger.warning("on_fall_confirmed called without rolling_buffer configured")
             return
@@ -111,6 +153,12 @@ class ClipRecorder(FallEventObserver):
             logger.info(f"Clip saved: {clip_path}")
 
     def on_fall_recovered(self, event: FallEvent) -> None:
+        """
+        Handle a fall recovery event; this implementation performs no action.
+        
+        Parameters:
+            event (FallEvent): The fall event that was recovered.
+        """
         pass
 
     def shutdown(self) -> None:
