@@ -2,26 +2,78 @@
 
 本目錄包含已完成的開發計畫，僅供歷史參考。
 
-## 文檔列表
+---
+
+## Phase 1 設計與實作
 
 ### 2025-12-28-fall-detection-system-design.md
-- **階段：** Phase 1 設計規格書
+
 - **狀態：** ✅ 已完成
-- **完成日期：** 2025-12-28
-- **內容：** FDS 系統架構設計、技術選型、資料生命週期管理、核心模組說明
+- **內容：** FDS 系統架構設計、技術選型、資料生命週期管理
 
 ### 2025-12-28-fds-phase1-implementation.md
-- **階段：** Phase 1 實作計畫（15 Tasks）
+
 - **狀態：** ✅ 已完成
-- **完成日期：** 2025-12-28
-- **內容：** 從專案設定到完整 Pipeline 的 TDD 實作步驟
+- **內容：** 從專案設定到完整 Pipeline 的 TDD 實作（15 Tasks）
+
+---
+
+## Phase 2 資料生命週期管理
+
+### 2025-12-29-cloud-sync-design.md
+
+- **狀態：** ✅ 已完成
+- **內容：** GCP Cloud Storage 骨架 JSON 上傳設計
+
+### 2025-12-29-cloud-sync-implementation.md
+
+- **狀態：** ✅ 已完成
+- **內容：** Cloud Sync 實作細節與 CLI 工具
+
+### 2025-12-31-skeleton-observer-extension.md
+
+- **狀態：** ✅ 已完成
+- **內容：** 擴展 Observer Pattern 支援 SUSPECTED 事件
+
+### 2025-01-03-yolo11-pose-integration.md
+
+- **狀態：** ✅ Phase A 完成
+- **內容：** YOLO11-Pose 模型升級（Phase B Keypoint Smoother 待實作）
+
+### 2025-01-03-fds-enhancement-plan.md
+
+- **狀態：** ✅ 已完成
+- **內容：** FDS 增強計畫總覽
+
+---
+
+## 功能擴展
+
+### 2026-01-05-post-event-recording.md
+
+- **狀態：** ✅ 已完成
+- **歸檔日期：** 2026-01-07
+- **內容：** 延遲錄製機制，事件確認後繼續錄製 n 秒
+
+### 2026-01-05-keypoint-smoother-pipeline-integration.md
+
+- **狀態：** 🔄 Phase B 待實作
+- **內容：** One Euro Filter Keypoint 平滑整合
+
+### 2026-01-06-remove-pipeline-refactor.md
+
+- **狀態：** ✅ 已完成
+- **內容：** 移除 Pipeline 模組，改用 Composition Root 模式
+
+---
 
 ## 當前開發狀態
 
 請參閱：
+
 - `/docs/PROJECT_STATUS.md` - 最新專案狀態
-- `/docs/plans/` - 當前進行中的計畫
+- `/docs/plans/` - 規劃中的功能
 
 ---
 
-**歸檔日期：** 2025-12-29
+**最後更新：** 2026-01-07
