@@ -416,22 +416,22 @@ src/
 
 | 功能 | 說明 | 預估工時 | 計畫文檔 |
 |------|------|----------|----------|
-| **Temporal Classifier** | 時序分類器取代規則引擎，降低 FPR | 1-2 週 | `2026-01-05-temporal-classifier-evaluation.md` |
-| **Keypoint Smoother (Phase B)** | One Euro Filter 平滑關鍵點抖動 | 2-3 天 | `archive/2026-01-05-keypoint-smoother-pipeline-integration.md` |
+| **Temporal Classifier** | 時序分類器取代規則引擎，降低 FPR | 1-2 週 | `docs/plans/2026-01-05-temporal-classifier-evaluation.md` |
+| **Keypoint Smoother (Phase B)** | One Euro Filter 平滑關鍵點抖動 | 2-3 天 | `docs/plans/archive/2026-01-05-keypoint-smoother-pipeline-integration.md` |
 
 #### 🟡 中優先級
 
 | 功能 | 說明 | 預估工時 | 計畫文檔 |
 |------|------|----------|----------|
-| **Cloudflare Tunnel** | 遠端存取 Dashboard | 0.5-1 天 | `2026-01-06-cloudflare-tunnel-integration.md` |
+| **Cloudflare Tunnel** | 遠端存取 Dashboard | 0.5-1 天 | `docs/plans/2026-01-06-cloudflare-tunnel-integration.md` |
 | **骨架特徵擴充** | 速度/加速度計算、軌跡分析 | 1-2 天 | - |
 
 #### 🟢 低優先級
 
 | 功能 | 說明 | 預估工時 | 計畫文檔 |
 |------|------|----------|----------|
-| **Camera Manager** | 多攝影機支援架構 | 3-5 天 | `2026-01-06-camera-manager-draft.md` |
-| **Home Monitoring App** | 24/7 即時串流 App | 2+ 週 | `2026-01-06-home-monitoring-app-draft.md` |
+| **Camera Manager** | 多攝影機支援架構 | 3-5 天 | `docs/plans/2026-01-06-camera-manager-draft.md` |
+| **Home Monitoring App** | 24/7 即時串流 App | 2+ 週 | `docs/plans/2026-01-06-home-monitoring-app-draft.md` |
 
 ---
 
