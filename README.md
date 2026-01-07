@@ -200,18 +200,20 @@ FDS/
 │   │   └── rolling_buffer.py  # 環形緩衝區
 │   ├── detection/             # 偵測模組
 │   │   ├── bbox.py            # BBox 資料結構
-│   │   └── detector.py        # YOLO11 偵測器
+│   │   ├── skeleton.py        # Skeleton 資料結構 (Pose 模式)
+│   │   └── detector.py        # YOLO11 偵測器 (BBox/Pose)
 │   ├── analysis/              # 分析模組
-│   │   ├── rule_engine.py     # 長寬比規則
-│   │   └── delay_confirm.py   # 延遲確認狀態機
+│   │   ├── rule_engine.py     # 長寬比規則 (BBox 模式)
+│   │   ├── pose_rule_engine.py # 軀幹角度規則 (Pose 模式)
+│   │   ├── delay_confirm.py   # 延遲確認狀態機
+│   │   └── smoothing/         # Keypoint 平滑 (One Euro Filter)
 │   ├── events/                # 事件處理
 │   │   ├── observer.py        # Observer Pattern
 │   │   ├── event_logger.py    # SQLite 記錄
 │   │   ├── clip_recorder.py   # 影片儲存
 │   │   └── notifier.py        # LINE 通知
 │   └── core/                  # 核心模組
-│       ├── config.py          # 設定載入
-│       └── pipeline.py        # 主流程整合
+│       └── config.py          # 設定載入
 ├── tests/                     # 測試檔案
 └── data/                      # 執行時資料（gitignore）
     ├── fds.db                 # SQLite 資料庫
