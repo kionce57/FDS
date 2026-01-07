@@ -50,6 +50,7 @@ class ClipRecorder(FallEventObserver):
         self.clip_before_sec = clip_before_sec
         self.clip_after_sec = clip_after_sec
         self._pending_recordings: list[threading.Timer] = []
+        self._recordings_lock = threading.Lock()
 
     def _generate_filename(self, event_id: str) -> str:
         """
@@ -122,19 +123,21 @@ class ClipRecorder(FallEventObserver):
         )
         timer.daemon = True
         timer.start()
-        self._pending_recordings.append(timer)
+        with self._recordings_lock:
+            self._pending_recordings.append(timer)
         logger.info(f"Scheduled clip recording in {self.clip_after_sec}s for event {event.event_id}")
 
     def _save_clip_delayed(self, event: FallEvent) -> None:
-        """
-        Save the recorded clip for a confirmed fall event using frames from the rolling buffer.
-        
-        Retrieve frames around the event's confirmation time using the configured before/after durations, write the frames to a video file, and if saved successfully, update the event logger with the clip path and emit an info log.
-        
-        Parameters:
-            event (FallEvent): The fall event whose `confirmed_at` timestamp and `event_id` are used to obtain and name the clip.
-        """
+        """Execute the actual clip saving after delay."""
+        # Remove completed timer from pending list
+        current_thread = threading.current_thread()
+        with self._recordings_lock:
+            self._pending_recordings = [
+                t for t in self._pending_recordings if t.ident != current_thread.ident
+            ]
+
         if self.rolling_buffer is None:
+            logger.warning(f"Cannot save clip for event {event.event_id}: rolling_buffer is None")
             return
 
         frames = self.rolling_buffer.get_clip(
@@ -159,12 +162,9 @@ class ClipRecorder(FallEventObserver):
         pass
 
     def shutdown(self) -> None:
-        """
-        Cancel and clear all pending clip recording timers.
-        
-        Cancels each scheduled Timer in the recorder's pending list, clears that list, and logs the shutdown action.
-        """
-        for timer in self._pending_recordings:
-            timer.cancel()
-        self._pending_recordings.clear()
+        """Cancel all pending recording timers."""
+        with self._recordings_lock:
+            for timer in self._pending_recordings:
+                timer.cancel()
+            self._pending_recordings.clear()
         logger.info("ClipRecorder shutdown: cancelled pending recordings")
