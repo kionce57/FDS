@@ -21,7 +21,6 @@ uv run fds-test-video <path>                       # 影片測試 (BBox 模式)
 uv run fds-test-video <path> --use-pose            # Pose 模式
 uv run fds-test-video <path> --use-pose --enable-smoothing  # Pose + 平滑
 uv run fds-cleanup                                 # 清理過期影片
-uv run fds-cloud-sync                              # 骨架 JSON 上傳 GCP
 
 # 測試
 uv run pytest                                      # 全部測試
