@@ -166,7 +166,37 @@ class StreamBuffer:
             return self._frame.copy() if self._frame is not None else None
 ```
 
-### 3.3 整合到 main.py
+### 3.3 Thread-Safety 與 Lock Contention
+
+> [!NOTE]
+> **常見疑問：24/7 串流會不會造成 Lock 被 FastAPI 霸佔？**
+>
+> 答案是**不會**，因為 Lock 只在 `get()` / `push()` 內部持有，持有時間 < 0.1ms。
+
+**Lock 持有時間分析：**
+
+| 操作 | 時間 | 持有 Lock |
+|------|------|-----------|
+| `stream_buffer.get()` | < 0.1 ms | ✅ 是 |
+| `cv2.imencode()` | 5-20 ms | ❌ 否 |
+| 網路傳輸 / `yield` | 10-50 ms | ❌ 否 |
+| `asyncio.sleep(1/15)` | ~66 ms | ❌ 否 |
+
+**FastAPI Streaming Loop 示意：**
+
+```python
+async def generate():
+    while True:  # 24/7 無限迴圈
+        frame = stream_buffer.get()  # 🔒 Lock < 0.1ms，立刻釋放
+        if frame is not None:
+            _, jpeg = cv2.imencode(...)  # ← 耗時操作在 Lock 外
+            yield (b'--frame\r\n' + ...)
+        await asyncio.sleep(1/15)  # ← Main Thread 可在此期間 push()
+```
+
+**設計原則：Lock 粒度最小化**——只保護 `self._frame` 的讀寫，所有耗時操作（編碼、網路傳輸）都在 Lock 外完成。
+
+### 3.4 整合到 main.py
 
 ```python
 # === Component Creation（新增）===
