@@ -1,5 +1,5 @@
 > **建立日期：** 2026-01-06
-> **更新日期：** 2026-01-12
+> **更新日期：** 2026-01-13
 > **狀態：** 草案，待當前系統完成後實作
 > **優先級：** 低（Phase 3+）
 > **目標：** 實現 24/7 即時影像監控 + 事件通知的前後端分離架構
@@ -35,18 +35,22 @@
 
 ### 2.1 單管線 + StreamBuffer 架構
 
-核心設計理念：**串流與偵測共用同一條管線**，透過 StreamBuffer 將 frame 提供給 FastAPI endpoint。
+核心設計理念：**StreamBuffer 與現有 RollingBuffer 並行**，在同一位置接收 frame，分別服務不同用途。
 
 ```mermaid
 graph TD
     subgraph Local["本地機器"]
         Camera["Camera"]
 
-        subgraph Pipeline["Single Pipeline"]
+        subgraph Pipeline["Detection Pipeline"]
             Detector["YOLO Detection"]
-            StreamBuffer["StreamBuffer<br/>(單幀緩衝)"]
             RuleEngine["RuleEngine"]
             DelayConfirm["DelayConfirm<br/>(State Machine)"]
+        end
+
+        subgraph Buffers["Frame Buffers"]
+            RollingBuffer["RollingBuffer<br/>(歷史幀，供 ClipRecorder)"]
+            StreamBuffer["StreamBuffer<br/>(最新幀，供串流)"]
         end
 
         subgraph Observers["Observer Pattern (事件驅動)"]
@@ -59,12 +63,14 @@ graph TD
         Tunnel["Cloudflare Tunnel"]
 
         Camera --> Detector
-        Detector --> StreamBuffer
         Detector --> RuleEngine
+        Detector -->|"frame + bbox"| RollingBuffer
+        Detector -->|"frame"| StreamBuffer
         RuleEngine --> DelayConfirm
         DelayConfirm -.->|"on_fall_confirmed()"| EventLogger
         DelayConfirm -.->|"on_fall_confirmed()"| LineNotifier
         DelayConfirm -.->|"on_fall_confirmed()"| ClipRecorder
+        ClipRecorder -.->|"get_clip()"| RollingBuffer
 
         StreamBuffer -->|"每幀"| API
         DelayConfirm -.->|"事件推播"| API
@@ -80,29 +86,41 @@ graph TD
 
 ### 2.2 資料流說明
 
-```
-while running:
-    frame = camera.read()
+對照現有 `process_frame()` 實作，StreamBuffer 與 RollingBuffer 在同一位置 push：
 
-    # 1. Detection（與現有邏輯相同）
+```python
+def process_frame(frame, current_time, ...):
+    # 1. Detection
     detections = detector.detect(frame)
+    detection = detections[0] if detections else None
 
-    # 2. 推送給 StreamBuffer（每幀，非阻塞）
-    stream_buffer.push(frame)
+    # 2. Rule evaluation
+    is_fallen = rule_engine.is_fallen(detection)
+    bbox_tuple = (detection.x, ...) if detection else None
 
-    # 3. 跌倒判斷（現有邏輯不變）
-    is_fallen = rule_engine.is_fallen(detections)
-    state = delay_confirm.update(is_fallen, current_time)
-    # ↑ 內部會觸發 Observer（事件驅動，非每幀）
+    # 3. Push to Buffers（現有 + 新增）
+    frame_data = FrameData(timestamp=current_time, frame=frame.copy(), bbox=bbox_tuple)
+    rolling_buffer.push(frame_data)   # 現有：供 ClipRecorder 擷取事件片段
+    stream_buffer.push(frame)          # 新增：供 FastAPI 串流
+
+    # 4. State machine → 觸發 Observers
+    return delay_confirm.update(is_fallen=is_fallen, current_time=current_time)
 ```
 
-### 2.3 設計原則
+### 2.3 Buffer 職責比較
 
-| 原則              | 說明                                                    |
-| ----------------- | ------------------------------------------------------- |
-| **單管線設計**    | 串流與偵測在同一條管線，frame 順序一致                  |
-| **職責分離**      | StreamBuffer 負責串流，Observer 負責事件                |
-| **非阻塞串流**    | StreamBuffer 採用覆蓋策略，不阻塞主迴圈                 |
+| Buffer | 用途 | 儲存內容 | 消費者 |
+| ------ | ---- | -------- | ------ |
+| **RollingBuffer** | 事件發生時擷取前後影片 | `FrameData(timestamp, frame, bbox)` | `ClipRecorder.on_fall_confirmed()` |
+| **StreamBuffer** | 即時串流給前端 | 最新一幀 `frame` | `FastAPI /api/stream` |
+
+### 2.4 設計原則
+
+| 原則 | 說明 |
+| ---- | ---- |
+| **最小變更** | StreamBuffer 加在 RollingBuffer 旁邊，不改動現有邏輯 |
+| **職責分離** | RollingBuffer 負責歷史幀，StreamBuffer 負責最新幀 |
+| **非阻塞** | StreamBuffer 採用覆蓋策略，不阻塞主迴圈 |
 | **Observer 不變** | 現有的 EventLogger、LineNotifier、ClipRecorder 保持不變 |
 
 ---
@@ -151,27 +169,31 @@ class StreamBuffer:
 ### 3.3 整合到 main.py
 
 ```python
+# === Component Creation（新增）===
 from src.capture.stream_buffer import StreamBuffer
-
-# === Component Creation ===
 stream_buffer = StreamBuffer()
 
-# === Main Loop ===
-while running:
-    frame = camera.read()
-    if frame is None:
-        continue
-
-    current_time = time.time()
+# === 修改 process_frame()，在 rolling_buffer.push() 旁邊新增一行 ===
+def process_frame(frame, current_time, ..., stream_buffer):
     detections = detector.detect(frame)
+    detection = detections[0] if detections else None
 
-    # 推送給串流（新增）
+    is_fallen = rule_engine.is_fallen(detection)
+    bbox_tuple = ...
+
+    # 現有
+    frame_data = FrameData(timestamp=current_time, frame=frame.copy(), bbox=bbox_tuple)
+    rolling_buffer.push(frame_data)
+
+    # 新增：推送給串流
     stream_buffer.push(frame)
 
-    # 以下不變
-    is_fallen = rule_engine.is_fallen(detections)
-    state = delay_confirm.update(is_fallen, current_time)
+    return delay_confirm.update(is_fallen=is_fallen, current_time=current_time)
 ```
+
+**變更範圍：**
+- `main.py`: 新增 `StreamBuffer` 初始化
+- `process_frame()`: 新增一行 `stream_buffer.push(frame)`
 
 ---
 
@@ -406,17 +428,19 @@ GET /api/stream?quality=low    # 720p, 10fps, 50%
 
 ## 8. 與現有系統的整合點
 
-| 現有元件       | 整合方式                             | 變更幅度 |
-| -------------- | ------------------------------------ | -------- |
-| `main.py`      | 新增 StreamBuffer 初始化與 push 呼叫 | 小       |
-| `Camera`       | 不變                                 | 無       |
-| `Detector`     | 不變                                 | 無       |
-| `RuleEngine`   | 不變                                 | 無       |
-| `DelayConfirm` | 不變                                 | 無       |
-| `Observer`     | 新增 WebSocketNotifier 訂閱者        | 小       |
-| `EventLogger`  | 不變                                 | 無       |
-| `LineNotifier` | 保留作為主要通知                     | 無       |
-| `ClipRecorder` | 不變                                 | 無       |
+| 現有元件         | 整合方式                                        | 變更幅度 |
+| ---------------- | ----------------------------------------------- | -------- |
+| `main.py`        | 新增 StreamBuffer 初始化，`process_frame` 加一行 | 小       |
+| `process_frame`  | 在 `rolling_buffer.push()` 旁新增 `stream_buffer.push()` | 小 |
+| `RollingBuffer`  | 不變，繼續負責事件片段擷取                       | 無       |
+| `Camera`         | 不變                                            | 無       |
+| `Detector`       | 不變                                            | 無       |
+| `RuleEngine`     | 不變                                            | 無       |
+| `DelayConfirm`   | 不變                                            | 無       |
+| `Observer`       | 新增 WebSocketNotifier 訂閱者                   | 小       |
+| `EventLogger`    | 不變                                            | 無       |
+| `LineNotifier`   | 保留作為主要通知                                | 無       |
+| `ClipRecorder`   | 不變，繼續從 RollingBuffer 取片段               | 無       |
 
 **新增元件：**
 
@@ -498,12 +522,13 @@ Camera Manager → [Camera 1] → StreamBuffer 1 → /api/cameras/1/stream
 
 ---
 
-**文檔版本：** 0.3
-**最後更新：** 2026-01-12
+**文檔版本：** 0.4
+**最後更新：** 2026-01-13
 **變更歷史：**
 
 - v0.1: 初始草案（雙管線架構）
 - v0.2: 新增 Capture 共用方案分析、多 Camera 擴展架構
 - v0.3: 重構為單管線 + StreamBuffer 架構，簡化設計
+- v0.4: 修正架構圖，StreamBuffer 與現有 RollingBuffer 並行於 Detection 之後
 
 **下一步：** 等待當前系統完成後再進入實作
