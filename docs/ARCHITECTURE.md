@@ -79,37 +79,37 @@ graph TD
 
 ### Layer 1: INPUT LAYER
 
-| 元件 | 職責 | 實作 |
-|------|------|------|
-| **Camera / Video Source** | 提供影像來源 | USB Camera、RTSP、影片檔案 |
-| **Ingest / Capture** | 接收並解碼影像串流 | `capture/camera.py` |
+| 元件                      | 職責               | 實作                       |
+| ------------------------- | ------------------ | -------------------------- |
+| **Camera / Video Source** | 提供影像來源       | USB Camera、RTSP、影片檔案 |
+| **Ingest / Capture**      | 接收並解碼影像串流 | `capture/camera.py`        |
 
 ### Layer 2: PROCESSING LAYER (Edge Inference)
 
-| 元件 | 職責 | 實作 |
-|------|------|------|
-| **Person Detection** | YOLO11 偵測人體骨架 | `detection/detector.py` |
-| **Object Tracking** | 維護人員 ID 連續性 | `detection/tracker.py` |
-| **Feature Builder** | 聚合時間窗特徵 (30-90 frames) | `analysis/feature_builder.py` |
-| **Rolling Buffer** | 環形緩衝區，保留事件前後影像 | `capture/rolling_buffer.py` |
+| 元件                 | 職責                          | 實作                          |
+| -------------------- | ----------------------------- | ----------------------------- |
+| **Person Detection** | YOLO11 偵測人體骨架           | `detection/detector.py`       |
+| **Object Tracking**  | 維護人員 ID 連續性            | `detection/tracker.py`        |
+| **Feature Builder**  | 聚合時間窗特徵 (30-90 frames) | `analysis/feature_builder.py` |
+| **Rolling Buffer**   | 環形緩衝區，保留事件前後影像  | `capture/rolling_buffer.py`   |
 
 ### Layer 3: ANALYSIS LAYER (Decision & Event)
 
-| 元件 | 職責 | 實作 |
-|------|------|------|
-| **Temporal Event Classifier** | 時間序列分類，輸出跌倒機率 | `analysis/classifier.py` |
-| **Decision & State Machine** | 狀態機管理 (Normal→Suspected→Confirmed) | `analysis/delay_confirm.py` |
+| 元件                          | 職責                                    | 實作                        |
+| ----------------------------- | --------------------------------------- | --------------------------- |
+| **Temporal Event Classifier** | 時間序列分類，輸出跌倒機率              | `analysis/classifier.py`    |
+| **Decision & State Machine**  | 狀態機管理 (Normal→Suspected→Confirmed) | `analysis/delay_confirm.py` |
 
 ### Layer 4: OUTPUT LAYER (Server Side)
 
-| 元件 | 職責 | 實作 |
-|------|------|------|
-| **Observer / Publisher** | 事件發布介面，廣播給所有訂閱者 | `events/observer.py` |
-| **Notifier** | LINE / Email 通知（直接訂閱 Observer） | `events/notifier.py` |
-| **Clip Recorder** | 擷取事件影片存檔（直接訂閱 Observer） | `events/clip_recorder.py` |
-| **API Server** | FastAPI HTTP 服務（直接訂閱 Observer） | `web/app.py` |
-| **Database** | SQLite 事件儲存 | `data/fds.db` |
-| **Dashboard** | Web UI（透過 API Server 存取） | `web/templates/` |
+| 元件                     | 職責                                   | 實作                      |
+| ------------------------ | -------------------------------------- | ------------------------- |
+| **Observer / Publisher** | 事件發布介面，廣播給所有訂閱者         | `events/observer.py`      |
+| **Notifier**             | LINE / Email 通知（直接訂閱 Observer） | `events/notifier.py`      |
+| **Clip Recorder**        | 擷取事件影片存檔（直接訂閱 Observer）  | `events/clip_recorder.py` |
+| **API Server**           | FastAPI HTTP 服務（直接訂閱 Observer） | `web/app.py`              |
+| **Database**             | SQLite 事件儲存                        | `data/fds.db`             |
+| **Dashboard**            | Web UI（透過 API Server 存取）         | `web/templates/`          |
 
 ### Observer Pattern 訂閱關係
 
@@ -121,91 +121,88 @@ Observer (Publisher)
 ```
 
 **設計優勢**：
+
 - 三個訂閱者**並行獨立**運作
 - API Server **不再負責觸發通知**，只服務 Dashboard
 - 即使 API Server 掛掉，通知仍能發送
 
 ---
 
-## 雙管線架構（居家監控 App）
+## 單管線 + StreamBuffer 架構（居家監控 App）
 
-> **狀態**：規劃中，待 Phase 3 實作
+> **狀態**：規劃中，待當前系統完成後實作
 > **設計文件**：[2026-01-06-home-monitoring-app-draft.md](./plans/2026-01-06-home-monitoring-app-draft.md)
 
-為支援 **24/7 即時影像監控** + **事件偵測通知**，系統將擴展為雙管線架構：
+為支援 **24/7 即時影像監控** + **事件偵測通知**，系統在現有 Detection Pipeline 基礎上新增 **StreamBuffer**，與 RollingBuffer 並行運作。
 
 ```mermaid
 graph TD
-    subgraph Input["INPUT LAYER"]
+    subgraph Local["本地機器"]
         Camera["Camera"]
-        Capture["Capture<br/>(共用)"]
-        Camera --> Capture
-    end
 
-    subgraph Pipelines["DUAL PIPELINE"]
-        subgraph P1["Pipeline 1: 即時串流(P)"]
-            StreamServer["Stream Server<br/>MJPEG/WebSocket"]
+        subgraph Pipeline["Detection Pipeline"]
+            Detector["YOLO Detection"]
+            RuleEngine["RuleEngine"]
+            DelayConfirm["DelayConfirm<br/>(State Machine)"]
         end
-        
-        subgraph P2["Pipeline 2: 事件偵測(P+A)"]
-            YOLO["YOLO Detection"]
-            Classifier["Classifier"]
-            StateMachine["State Machine"]
-            Observer["Observer"]
-        end
-    end
 
-    subgraph Output["OUTPUT LAYER"]
-        API["API Server<br/>FastAPI"]
-        Notifier["Notifier"]
+        subgraph Buffers["Frame Buffers"]
+            RollingBuffer["RollingBuffer<br/>(歷史幀，供 ClipRecorder)"]
+            StreamBuffer["StreamBuffer<br/>(最新幀，供串流)"]
+        end
+
+        subgraph Observers["Observer Pattern (事件驅動)"]
+            EventLogger["EventLogger"]
+            LineNotifier["LineNotifier"]
+            ClipRecorder["ClipRecorder"]
+        end
+
+        API["FastAPI<br/>REST API + WebSocket"]
         Tunnel["Cloudflare Tunnel"]
-        App["📱 Mobile App"]
+
+        Camera --> Detector
+        Detector --> RuleEngine
+        Detector -->|"frame + bbox"| RollingBuffer
+        Detector -->|"frame"| StreamBuffer
+        RuleEngine --> DelayConfirm
+        DelayConfirm -.->|"on_fall_confirmed()"| EventLogger
+        DelayConfirm -.->|"on_fall_confirmed()"| LineNotifier
+        DelayConfirm -.->|"on_fall_confirmed()"| ClipRecorder
+        ClipRecorder -.->|"get_clip()"| RollingBuffer
+
+        StreamBuffer -->|"每幀"| API
+        DelayConfirm -.->|"事件推播"| API
+        API --> Tunnel
     end
 
-    Capture --> StreamServer
-    Capture --> YOLO
-    YOLO --> Classifier
-    Classifier --> StateMachine
-    StateMachine --> Observer
+    subgraph External["外部"]
+        Web["🌐 Web Browser"]
+    end
 
-    StreamServer --> API
-    Observer --> Notifier
-    Observer --> API
-    API --> Tunnel
-    Tunnel --> App
+    Tunnel --> Web
 ```
 
 ### 設計原則
 
-| 原則 | 說明 |
-|------|------|
-| **雙管線分離** | 串流與偵測各自獨立 Pipeline |
-| **共用 Capture** | 兩條 Pipeline 透過 Queue 訂閱同一 Capture |
-| **計算本地化** | AI 推論在 Edge 端執行 |
-| **前後端分離** | App 透過 REST API + WebSocket 通訊 |
+| 原則              | 說明                                                    |
+| ----------------- | ------------------------------------------------------- |
+| **最小變更**      | StreamBuffer 加在 RollingBuffer 旁邊，不改動現有邏輯    |
+| **職責分離**      | RollingBuffer 負責歷史幀，StreamBuffer 負責最新幀       |
+| **非阻塞**        | StreamBuffer 採用覆蓋策略，不阻塞主迴圈                 |
+| **Observer 不變** | 現有的 EventLogger、LineNotifier、ClipRecorder 保持不變 |
 
-### Capture 共用機制
+### Buffer 職責比較
 
-為避免 Frame 競爭，採用 **Broadcaster Pattern**：
+| Buffer            | 用途                   | 儲存內容                            | 消費者                             |
+| ----------------- | ---------------------- | ----------------------------------- | ---------------------------------- |
+| **RollingBuffer** | 事件發生時擷取前後影片 | `FrameData(timestamp, frame, bbox)` | `ClipRecorder.on_fall_confirmed()` |
+| **StreamBuffer**  | 即時串流給前端         | 最新一幀 `frame`                    | `FastAPI /api/stream`              |
 
-```
-Camera ──► Capture ──► Broadcaster
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-         Queue[1]      Queue[2]     Queue[N]
-         (串流)        (偵測)       (未來...)
-```
+### 相關設計文件
 
-詳細設計參考：[Camera Manager 設計草案](./plans/2026-01-06-camera-manager-draft.md)
-
-### 對外暴露：Cloudflare Tunnel
-
-- **Dashboard 遠端存取**：透過 Cloudflare Tunnel 暴露 FastAPI
-- **LINE/Email 通知**：直接 POST（不經過 Tunnel）
-- **影片不外傳**：MP4 保留本地，僅傳輸 metadata
-
-詳細設計參考：[Cloudflare Tunnel 整合設計](./plans/2026-01-06-cloudflare-tunnel-integration.md)
+- **即時串流**：[居家監控 App 設計草案](./plans/2026-01-06-home-monitoring-app-draft.md)
+- **多 Camera 擴展**：[Camera Manager 設計草案](./plans/2026-01-06-camera-manager-draft.md)
+- **遠端存取**：[Cloudflare Tunnel 整合設計](./plans/2026-01-06-cloudflare-tunnel-integration.md)
 
 ---
 
@@ -403,12 +400,12 @@ sequenceDiagram
 
 **設計重點：**
 
-| 項目 | 說明 |
-|------|------|
-| **延遲機制** | `threading.Timer` 延遲 `clip_after_sec` 秒後執行錄製 |
-| **Buffer 容量** | `buffer_seconds` >= `delay_sec` + `clip_before_sec` + `clip_after_sec` + margin |
-| **Thread Safety** | `RollingBuffer` 使用 `threading.Lock` 保護並發存取 |
-| **Graceful Shutdown** | `ClipRecorder.shutdown()` 取消所有 pending timers |
+| 項目                  | 說明                                                                            |
+| --------------------- | ------------------------------------------------------------------------------- |
+| **延遲機制**          | `threading.Timer` 延遲 `clip_after_sec` 秒後執行錄製                            |
+| **Buffer 容量**       | `buffer_seconds` >= `delay_sec` + `clip_before_sec` + `clip_after_sec` + margin |
+| **Thread Safety**     | `RollingBuffer` 使用 `threading.Lock` 保護並發存取                              |
+| **Graceful Shutdown** | `ClipRecorder.shutdown()` 取消所有 pending timers                               |
 
 ---
 
@@ -509,11 +506,13 @@ class FallEventObserver(Protocol):
 ```
 
 **訂閱者**：
+
 - `Notifier` - LINE/Email 通知
 - `ClipRecorder` - 影片擷取
 - `APIServer` - DB 寫入 + WebSocket 推播
 
 **設計優勢**：
+
 - 新增訂閱者無需修改 Observer
 - 各訂閱者獨立運作，互不影響
 - 符合開放封閉原則 (OCP)
@@ -533,11 +532,11 @@ class FallState(Enum):
 
 **狀態轉換**：
 
-| 轉換 | 條件 | 動作 |
-|------|------|------|
-| NORMAL → SUSPECTED | P_fall > threshold | - |
-| SUSPECTED → CONFIRMED | 持續 N 秒 | Observer.publish() |
-| CONFIRMED → NORMAL | P_fall < threshold | Observer.on_recovered() |
+| 轉換                  | 條件               | 動作                    |
+| --------------------- | ------------------ | ----------------------- |
+| NORMAL → SUSPECTED    | P_fall > threshold | -                       |
+| SUSPECTED → CONFIRMED | 持續 N 秒          | Observer.publish()      |
+| CONFIRMED → NORMAL    | P_fall < threshold | Observer.on_recovered() |
 
 ---
 
@@ -571,15 +570,15 @@ graph TD
     style F fill:#c8e6c9
 ```
 
-| 步驟 | 檔案 | 學習重點 |
-|------|------|----------|
-| 1 | `README.md` | 功能概覽、快速開始 |
-| 2 | 本文件 | 四層架構、系統邊界 |
-| 3 | `src/core/pipeline.py` | 主流程、元件串接 |
-| 4 | `src/analysis/delay_confirm.py` | 狀態機設計 |
-| 5 | `src/events/observer.py` | Observer 模式應用 |
-| 6 | `src/web/` | FastAPI + Dashboard |
+| 步驟 | 檔案                            | 學習重點            |
+| ---- | ------------------------------- | ------------------- |
+| 1    | `README.md`                     | 功能概覽、快速開始  |
+| 2    | 本文件                          | 四層架構、系統邊界  |
+| 3    | `src/core/pipeline.py`          | 主流程、元件串接    |
+| 4    | `src/analysis/delay_confirm.py` | 狀態機設計          |
+| 5    | `src/events/observer.py`        | Observer 模式應用   |
+| 6    | `src/web/`                      | FastAPI + Dashboard |
 
 ---
 
-_文件更新日期：2026-01-06_
+_文件更新日期：2026-01-16_
